@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Fretboard from "./components/Fretboard";
 import TabPreview from "./components/TabPreview";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { getNoteColor } from "./utils/noteColors";
 import { playNote, startAudio } from "./audio/sampler";
 
 function App() {
@@ -20,7 +18,6 @@ function App() {
 
   const [playMode, setPlayMode] = useState("chord");
 
-  const previewRef = useRef();
   const rowsContainerRef = useRef();
 
   const MAX_STEPS_PER_LINE = 12;
