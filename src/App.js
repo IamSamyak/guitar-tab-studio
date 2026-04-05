@@ -11,20 +11,21 @@ function App() {
   const [tempo, setTempo] = useState(90);
   const [selectedNotes, setSelectedNotes] = useState([]);
 
-  const [tabRows, setTabRows] = useState([[]]);
+  // Updated structure: { name, steps }
+  const [tabRows, setTabRows] = useState([
+    { name: "Section 1", steps: [] }
+  ]);
+
   const [currentRow, setCurrentRow] = useState(0);
-
   const [editingStepIndex, setEditingStepIndex] = useState(null);
-
   const [playMode, setPlayMode] = useState("chord");
 
   const rowsContainerRef = useRef();
-
   const MAX_STEPS_PER_LINE = 12;
 
-  const currentRowData = tabRows[currentRow] || [];
+  const currentRowData = tabRows[currentRow]?.steps || [];
 
-  // Auto-scroll to latest row
+  // Auto-scroll
   useEffect(() => {
     if (rowsContainerRef.current) {
       rowsContainerRef.current.scrollTop =
@@ -32,7 +33,7 @@ function App() {
     }
   }, [tabRows]);
 
-  // Unlock audio once
+  // Unlock audio
   useEffect(() => {
     const unlock = async () => {
       await startAudio();
@@ -42,23 +43,33 @@ function App() {
     return () => window.removeEventListener("click", unlock);
   }, []);
 
+  // Update row name
+  const updateRowName = (rowIndex, name) => {
+    setTabRows((prev) => {
+      const updated = [...prev];
+      updated[rowIndex].name = name;
+      return updated;
+    });
+  };
+
   // Add / Edit Step
   const handleStamp = () => {
     if (selectedNotes.length === 0) return;
 
     setTabRows((prev) => {
       const updated = [...prev];
+      const row = { ...updated[currentRow] };
 
       if (editingStepIndex !== null) {
-        const row = [...updated[currentRow]];
-        row[editingStepIndex] = selectedNotes;
-        updated[currentRow] = row;
-
+        const steps = [...row.steps];
+        steps[editingStepIndex] = selectedNotes;
+        row.steps = steps;
         setEditingStepIndex(null);
       } else {
-        updated[currentRow] = [...updated[currentRow], selectedNotes];
+        row.steps = [...row.steps, selectedNotes];
       }
 
+      updated[currentRow] = row;
       return updated;
     });
 
@@ -69,9 +80,9 @@ function App() {
   const deleteStep = (stepIndex) => {
     setTabRows((prev) => {
       const updated = [...prev];
-      updated[currentRow] = updated[currentRow].filter(
-        (_, i) => i !== stepIndex
-      );
+      const row = { ...updated[currentRow] };
+      row.steps = row.steps.filter((_, i) => i !== stepIndex);
+      updated[currentRow] = row;
       return updated;
     });
 
@@ -87,7 +98,10 @@ function App() {
 
   // New row
   const addNewRow = () => {
-    setTabRows((prev) => [...prev, []]);
+    setTabRows((prev) => [
+      ...prev,
+      { name: `Section ${prev.length + 1}`, steps: [] }
+    ]);
     setCurrentRow((prev) => prev + 1);
     setEditingStepIndex(null);
   };
@@ -117,11 +131,10 @@ function App() {
     if (tabRows.length === 0) return;
 
     await startAudio();
-
     const beat = 60000 / tempo;
 
     for (let row of tabRows) {
-      for (let step of row) {
+      for (let step of row.steps) {
         const sorted = [...step].sort(
           (a, b) => a.stringIndex - b.stringIndex
         );
@@ -140,13 +153,9 @@ function App() {
     }
   };
 
-  // =========================
-  // ✅ SAVE WORK
-  // =========================
+  // Save work
   const saveWork = () => {
     const fileName = prompt("Enter file name:", "guitar-tab-work");
-
-    // If user cancels or enters empty name
     if (!fileName) return;
 
     const data = {
@@ -164,15 +173,13 @@ function App() {
     const a = document.createElement("a");
 
     a.href = url;
-    a.download = `${fileName}.json`; // dynamic filename
+    a.download = `${fileName}.json`;
     a.click();
 
     URL.revokeObjectURL(url);
   };
 
-  // =========================
-  // ✅ IMPORT WORK
-  // =========================
+  // Import work
   const importWork = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -199,67 +206,68 @@ function App() {
     reader.readAsText(file);
   };
 
-const exportPDF = async () => {
-  if (tabRows.length === 0) return;
+  // Export PDF
+  const exportPDF = async () => {
+    if (tabRows.length === 0) return;
 
-  const fileName = prompt("Enter PDF file name:", "guitar-tab");
-  if (!fileName) return;
+    const fileName = prompt("Enter PDF file name:", "guitar-tab");
+    if (!fileName) return;
 
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "pt",
-    format: "a4",
-  });
-
-  const margin = 40;
-  let y = 60;
-
-  pdf.setFont("Courier", "normal"); // monospace font
-  pdf.setFontSize(12);
-
-  // Title
-  pdf.text("Guitar Tab Sheet", margin, y);
-  y += 20;
-
-  if (capo > 0) {
-    pdf.text(`Capo on fret ${capo}`, margin, y);
-    y += 20;
-  }
-
-  const STRINGS = ["E", "A", "D", "G", "B", "E"];
-
-  tabRows.forEach((row, rowIndex) => {
-    if (!row || row.length === 0) return;
-
-    pdf.text(`Section ${rowIndex + 1}`, margin, y);
-    y += 16;
-
-    STRINGS.forEach((stringName, stringIndex) => {
-      let line = `${stringName}|`;
-
-      row.forEach((step) => {
-        const note = step.find((n) => n.stringIndex === stringIndex);
-
-        if (note) {
-          const fret = Math.max(note.fret - capo, 0);
-          const fretStr = fret.toString().padStart(2, "0");
-
-          line += `${fretStr}---`; // 3 dashes after each note
-        } else {
-          line += `-----`; // wider gap for empty steps
-        }
-      });
-
-      line += "|";
-      pdf.text(line, margin, y);
-      y += 16; // vertical spacing between lines
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
     });
 
-    y += 24; // extra space between sections
-  });
+    const margin = 40;
+    let y = 60;
 
-  pdf.save(`${fileName}.pdf`);
-};
+    pdf.setFont("Courier", "normal");
+    pdf.setFontSize(12);
+
+    pdf.text("Guitar Tab Sheet", margin, y);
+    y += 20;
+
+    if (capo > 0) {
+      pdf.text(`Capo on fret ${capo}`, margin, y);
+      y += 20;
+    }
+
+    const STRINGS = ["E", "A", "D", "G", "B", "E"];
+
+    tabRows.forEach((row, rowIndex) => {
+      const steps = row.steps;
+
+      pdf.text(row.name || `Section ${rowIndex + 1}`, margin, y);
+      y += 16;
+
+      STRINGS.forEach((stringName, stringIndex) => {
+        let line = `${stringName}|`;
+
+        steps.forEach((step) => {
+          const note = step.find(
+            (n) => n.stringIndex === stringIndex
+          );
+
+          if (note) {
+            const fret = Math.max(note.fret - capo, 0);
+            const fretStr = fret.toString().padStart(2, "0");
+            line += `${fretStr}---`;
+          } else {
+            line += `-----`;
+          }
+        });
+
+        line += "|";
+        pdf.text(line, margin, y);
+        y += 16;
+      });
+
+      y += 24;
+    });
+
+    pdf.save(`${fileName}.pdf`);
+  };
 
   const showWarning = currentRowData.length >= MAX_STEPS_PER_LINE;
 
@@ -275,7 +283,6 @@ const exportPDF = async () => {
       <div style={toolbar}>
         <div style={controlGroup}>
           <span style={label}>Capo</span>
-
           <select
             value={capo}
             disabled={capoLocked}
@@ -286,7 +293,6 @@ const exportPDF = async () => {
               <option key={i}>{i}</option>
             ))}
           </select>
-
           <button onClick={() => setCapoLocked((p) => !p)} style={btnGhost}>
             {capoLocked ? "🔓" : "🔒"}
           </button>
@@ -294,7 +300,6 @@ const exportPDF = async () => {
 
         <div style={controlGroup}>
           <span style={label}>Tempo</span>
-
           <input
             type="range"
             min={40}
@@ -303,21 +308,16 @@ const exportPDF = async () => {
             onChange={(e) => setTempo(Number(e.target.value))}
             style={{ width: 140 }}
           />
-
           <input
             type="number"
             value={tempo}
             onChange={(e) => setTempo(Number(e.target.value))}
             style={tempoInput}
           />
-
           <span style={{ opacity: 0.6 }}>BPM</span>
         </div>
 
-        {/* Save / Import / Export */}
-        <button style={btnGhost} onClick={saveWork}>
-          💾 Save
-        </button>
+        <button style={btnGhost} onClick={saveWork}>💾 Save</button>
 
         <label style={btnGhost}>
           📂 Import
@@ -329,20 +329,11 @@ const exportPDF = async () => {
           />
         </label>
 
-        <button style={btnGhost} onClick={exportPDF}>
-          ⬇ Export
-        </button>
+        <button style={btnGhost} onClick={exportPDF}>⬇ Export</button>
       </div>
 
       {/* Tab History */}
-      <div
-        ref={rowsContainerRef}
-        style={{
-          ...card,
-          maxHeight: 300,
-          overflowY: "auto",
-        }}
-      >
+      <div ref={rowsContainerRef} style={{ ...card, maxHeight: 300, overflowY: "auto" }}>
         {tabRows.map((row, rowIndex) => (
           <div
             key={rowIndex}
@@ -356,12 +347,23 @@ const exportPDF = async () => {
               padding: 8,
             }}
           >
-            <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 6 }}>
-              Section {rowIndex + 1}
-            </div>
+            <input
+              value={row.name}
+              onChange={(e) => updateRowName(rowIndex, e.target.value)}
+              placeholder="Enter section name"
+              style={{
+                padding: "4px 6px",
+                borderRadius: 6,
+                background: "#121212",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.2)",
+                marginBottom: 6,
+                width: "60%",
+              }}
+            />
 
             <TabPreview
-              notes={row}
+              notes={row.steps}
               capo={capo}
               onEditStep={editStep}
               onDeleteStep={deleteStep}

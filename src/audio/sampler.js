@@ -62,7 +62,7 @@ const sampler = new Tone.Sampler({
     D5: "D5.mp3",
   },
   release: 1.2,
-  baseUrl: "/samples/guitar-acoustic/",
+  baseUrl: process.env.PUBLIC_URL + "/samples/guitar-acoustic/",
   onload: () => {
     console.log("✅ ALL SAMPLES LOADED");
   },
