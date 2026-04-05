@@ -1,7 +1,7 @@
 import React from "react";
 import { getNoteName } from "../utils/notes";
 import { getNoteColor } from "../utils/noteColors";
-import { playNote } from "../audio/sampler";
+import { playNote, startAudio } from "../audio/sampler"; // ✅ IMPORT FIX
 
 const STRINGS = ["E", "A", "D", "G", "B", "E"];
 const STRING_ROOTS = [4, 9, 2, 7, 11, 4];
@@ -24,13 +24,17 @@ export default function Fretboard({
   const handlePlayNote = async (stringIndex, fret) => {
     if (fret < capo) return;
 
+    // 🔥 IMPORTANT: unlock audio context (fixes error)
+    await startAudio();
+
     const noteName = getNoteName(
       STRING_ROOTS[stringIndex],
       fret,
       0
     );
 
-    await playNote(noteName);
+    // 🎸 play sound
+    playNote(noteName);
 
     const alreadySelected = isSelected(stringIndex, fret);
 
@@ -116,7 +120,7 @@ export default function Fretboard({
                       style={{
                         width:
                           fret === capo
-                            ? CELL_WIDTH + 8 // 👈 extra space for open string
+                            ? CELL_WIDTH + 8
                             : CELL_WIDTH,
                         position: "relative",
                       }}
@@ -182,16 +186,13 @@ export default function Fretboard({
             ))}
           </div>
 
-          {/* 🎸 CAPO (FIXED POSITION + NON-BLOCKING) */}
+          {/* 🎸 CAPO */}
           {capo > 0 && (
             <>
               <div
                 style={{
                   position: "absolute",
-                  left:
-                    100 +
-                    capo * CELL_WIDTH -
-                    10, // 👈 shifted LEFT (between frets)
+                  left: 100 + capo * CELL_WIDTH - 10,
                   top: 0,
                   bottom: 0,
                   width: 20,
@@ -201,17 +202,14 @@ export default function Fretboard({
                   boxShadow:
                     "0 0 10px rgba(255,0,0,0.4)",
                   zIndex: 20,
-                  pointerEvents: "none", // 👈 allows clicking through
+                  pointerEvents: "none",
                 }}
               />
 
               <div
                 style={{
                   position: "absolute",
-                  left:
-                    100 +
-                    capo * CELL_WIDTH -
-                    16,
+                  left: 100 + capo * CELL_WIDTH - 16,
                   top: -18,
                   color: "#ff4d4d",
                   fontSize: 10,

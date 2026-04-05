@@ -1,8 +1,35 @@
 import * as Tone from "tone";
 
-/* 🎸 SAMPLER */
+let isStarted = false;
+
+/* 🔓 Start Audio */
+export const startAudio = async () => {
+  if (!isStarted) {
+    await Tone.start();
+    console.log("🔊 Audio Started");
+    isStarted = true;
+  }
+};
+
+/* 🎸 REVERB */
+const reverb = new Tone.Reverb({
+  decay: 2,
+  wet: 0.3,
+}).toDestination();
+
+/* 🎸 FULL RANGE SAMPLER */
 const sampler = new Tone.Sampler({
   urls: {
+    // 🔽 LOW OCTAVE (CRITICAL)
+    E2: "E2.mp3",
+    F2: "F2.mp3",
+    "F#2": "Fs2.mp3",
+    G2: "G2.mp3",
+    "G#2": "Gs2.mp3",
+    A2: "A2.mp3",
+    "A#2": "As2.mp3",
+    B2: "B2.mp3",
+
     C3: "C3.mp3",
     "C#3": "Cs3.mp3",
     D3: "D3.mp3",
@@ -28,26 +55,24 @@ const sampler = new Tone.Sampler({
     A4: "A4.mp3",
     "A#4": "As4.mp3",
     B4: "B4.mp3",
+
+    // 🔼 HIGH NOTES (important for high frets)
+    C5: "C5.mp3",
+    "C#5": "Cs5.mp3",
+    D5: "D5.mp3",
   },
-  release: 1,
+  release: 1.2,
   baseUrl: "/samples/guitar-acoustic/",
-}).toDestination();
+  onload: () => {
+    console.log("✅ ALL SAMPLES LOADED");
+  },
+}).connect(reverb);
 
-/* 🔊 REVERB */
-const reverb = new Tone.Reverb(1.8).toDestination();
-sampler.connect(reverb);
-
-/**
- * Ensure audio context is started
- */
-export const startAudio = async () => {
-  await Tone.start();
-};
-
-/**
- * Play a note
- */
+/* 🎸 Play Note */
 export const playNote = async (noteName) => {
   await startAudio();
+
+  console.log("🎸 Playing:", noteName);
+
   sampler.triggerAttackRelease(noteName, "8n");
 };

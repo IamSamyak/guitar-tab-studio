@@ -3,7 +3,18 @@ import { getNoteColor } from "../utils/noteColors";
 
 const STRINGS = ["E", "A", "D", "G", "B", "E"];
 
-export default function TabPreview({ notes, capo = 0 }) {
+// 🔥 Adjust this based on your PDF layout width
+const MAX_STEPS_PER_LINE = 12;
+
+export default function TabPreview({
+  notes,
+  capo = 0,
+  onEditStep,
+  onDeleteStep,
+  editingStepIndex,
+}) {
+  const showWarning = notes.length >= MAX_STEPS_PER_LINE;
+
   return (
     <div
       style={{
@@ -23,6 +34,24 @@ export default function TabPreview({ notes, capo = 0 }) {
       {capo > 0 && (
         <div style={{ marginBottom: 10, fontSize: 12, color: "#aaa" }}>
           Frets are shown relative to capo
+        </div>
+      )}
+
+      {/* ⚠️ Warning */}
+      {showWarning && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: "10px 12px",
+            borderRadius: 8,
+            background: "#ff9800",
+            color: "#000",
+            fontWeight: "bold",
+            fontSize: 13,
+          }}
+        >
+          ⚠️ This tab is getting long for A4 PDF. Consider splitting into
+          multiple rows for better formatting.
         </div>
       )}
 
@@ -77,10 +106,12 @@ export default function TabPreview({ notes, capo = 0 }) {
                 ? getNoteColor(note.note)
                 : "transparent";
 
-              // 🔥 Adjust fret based on capo
+              // Adjust fret based on capo
               const displayFret = note
                 ? Math.max(note.fret - capo, 0)
                 : null;
+
+              const isEditing = editingStepIndex === colIndex;
 
               return (
                 <div
@@ -103,6 +134,49 @@ export default function TabPreview({ notes, capo = 0 }) {
                     }}
                   />
 
+                  {/* Edit/Delete Controls */}
+                  {stringIndex === 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: -10,
+                        right: 2,
+                        display: "flex",
+                        gap: 4,
+                      }}
+                    >
+                      <button
+                        onClick={() => onEditStep(colIndex)}
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 4px",
+                          borderRadius: 4,
+                          border: "none",
+                          cursor: "pointer",
+                          background: isEditing ? "#1db954" : "#444",
+                          color: "#fff",
+                        }}
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        onClick={() => onDeleteStep(colIndex)}
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 4px",
+                          borderRadius: 4,
+                          border: "none",
+                          cursor: "pointer",
+                          background: "#e53935",
+                          color: "#fff",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
                   {/* Fret number */}
                   <span
                     style={{
@@ -113,6 +187,9 @@ export default function TabPreview({ notes, capo = 0 }) {
                       color: note ? "#000" : "#777",
                       fontWeight: "bold",
                       minWidth: 20,
+                      border: isEditing
+                        ? "2px solid #1db954"
+                        : "none",
                     }}
                   >
                     {note ? displayFret : "-"}
