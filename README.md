@@ -1,70 +1,178 @@
-# Getting Started with Create React App
+---
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# 🎸 Guitar Tab Studio
 
-## Available Scripts
+A web-based guitar tab editor and visualizer built with React.
+Create, edit, preview, and export guitar tabs with an interactive fretboard and PDF export support.
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## 🌐 Live Demo
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+👉 **App Link:**
+[https://IamSamyak.github.io/guitar-tab-studio/](https://IamSamyak.github.io/guitar-tab-studio/)
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## ✨ Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+* 🎸 Interactive guitar fretboard
+* 🧠 Visual tab preview
+* 🔊 Sound playback for notes
+* 🎯 Capo support
+* 📄 Export tabs to PDF
+* 🎨 Color-coded notes
+* ⚡ Real-time editing
+* 💾 Zustand-based state management
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 🛠 Tech Stack
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+* React (CRA)
+* Zustand (state management)
+* Tone.js (audio playback)
+* html2canvas (rendering UI)
+* jsPDF (PDF export)
+* Tailwind CSS
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## 📦 Installation
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+git clone https://github.com/IamSamyak/guitar-tab-studio.git
+cd guitar-tab-studio
+npm install
+npm start
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+App will run at:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```
+http://localhost:3000
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+---
 
-## Learn More
+## 🧪 Build
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+npm run build
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Creates an optimized production build in the `build/` folder.
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 🚀 Deployment (GitHub Actions)
 
-### Analyzing the Bundle Size
+This project uses **GitHub Actions + GitHub Pages** for deployment.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Deployment is triggered via **version tags**.
 
-### Making a Progressive Web App
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 🏷️ Creating a Release (Developer Guide)
 
-### Advanced Configuration
+Follow these steps to deploy a new version:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### 1. Make your changes
 
-### Deployment
+```bash
+git add .
+git commit -m "feat: your changes description"
+git push origin main
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
+### 2. Create a version tag
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Use semantic versioning:
+
+* `v1.0.0` → initial release
+* `v1.1.0` → new features
+* `v1.0.1` → bug fixes
+
+```bash
+git tag v1.0.3
+git push origin v1.0.3
+```
+
+---
+
+### 3. Deployment flow
+
+Once the tag is pushed:
+
+* GitHub Actions workflow is triggered
+* App is built
+* Deployment is validated against environment rules
+* Site is deployed to GitHub Pages
+
+---
+
+### 4. Verify deployment
+
+* Go to **Actions tab** → check workflow status ✅
+* Visit the live app:
+
+```
+https://IamSamyak.github.io/guitar-tab-studio/
+```
+
+---
+
+## ⚙️ Environment Setup (Important)
+
+In GitHub repo:
+
+👉 Settings → Environments → `github-pages`
+
+Ensure:
+
+* Deployment type: GitHub Actions
+* Allowed refs:
+
+  * Tag pattern: `v*`
+* No required reviewers (unless desired)
+
+---
+
+## 🧾 Project Structure (simplified)
+
+```
+src/
+  components/
+  utils/
+  audio/
+  App.js
+  index.js
+```
+
+---
+
+## 📌 Notes
+
+* This project uses GitHub Actions for CI/CD
+* No `gh-pages` branch is used
+* Deployment is controlled via version tags
+* React Router (if used) should use correct basename for GitHub Pages
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create a feature branch
+3. Commit changes
+4. Push and open a PR
+
+---
+
+## 📄 License
+
+This project is open-source and available under the MIT License.
+
+---
