@@ -13,11 +13,9 @@ function App() {
   const [tempo, setTempo] = useState(90);
   const [selectedNotes, setSelectedNotes] = useState([]);
 
-  // Rows
   const [tabRows, setTabRows] = useState([[]]);
   const [currentRow, setCurrentRow] = useState(0);
 
-  // Editing state
   const [editingStepIndex, setEditingStepIndex] = useState(null);
 
   const [playMode, setPlayMode] = useState("chord");
@@ -37,6 +35,16 @@ function App() {
     }
   }, [tabRows]);
 
+  // Unlock audio once
+  useEffect(() => {
+    const unlock = async () => {
+      await startAudio();
+      window.removeEventListener("click", unlock);
+    };
+    window.addEventListener("click", unlock);
+    return () => window.removeEventListener("click", unlock);
+  }, []);
+
   // Add / Edit Step
   const handleStamp = () => {
     if (selectedNotes.length === 0) return;
@@ -51,10 +59,7 @@ function App() {
 
         setEditingStepIndex(null);
       } else {
-        updated[currentRow] = [
-          ...updated[currentRow],
-          selectedNotes,
-        ];
+        updated[currentRow] = [...updated[currentRow], selectedNotes];
       }
 
       return updated;
@@ -89,16 +94,6 @@ function App() {
     setCurrentRow((prev) => prev + 1);
     setEditingStepIndex(null);
   };
-
-  // Unlock audio once
-  useEffect(() => {
-    const unlock = async () => {
-      await startAudio();
-      window.removeEventListener("click", unlock);
-    };
-    window.addEventListener("click", unlock);
-    return () => window.removeEventListener("click", unlock);
-  }, []);
 
   // Play selected notes
   const playSelectedNotes = async () => {
@@ -148,73 +143,128 @@ function App() {
     }
   };
 
-  const exportPDF = async () => {
-    if (tabRows.length === 0) return;
+  // =========================
+  // ✅ SAVE WORK
+  // =========================
+  const saveWork = () => {
+    const fileName = prompt("Enter file name:", "guitar-tab-work");
 
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: "a4",
+    // If user cancels or enters empty name
+    if (!fileName) return;
+
+    const data = {
+      capo,
+      tempo,
+      playMode,
+      tabRows,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
     });
 
-    const margin = 40;
-    let y = 60;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
 
-    pdf.setFont("courier", "normal");
-    pdf.setFontSize(12);
+    a.href = url;
+    a.download = `${fileName}.json`; // dynamic filename
+    a.click();
 
-    pdf.text("Guitar Tab Sheet", margin, y);
-    y += 20;
-
-    if (capo > 0) {
-      pdf.text(`Capo on fret ${capo}`, margin, y);
-      y += 20;
-    }
-
-    const STRINGS = ["e", "B", "G", "D", "A", "E"];
-    const PDF_STRINGS = [...STRINGS].reverse();
-
-    tabRows.forEach((row, rowIndex) => {
-      if (row.length === 0) return;
-
-      pdf.text(`Section ${rowIndex + 1}`, margin, y);
-      y += 16;
-
-      const lines = PDF_STRINGS.map((stringName, stringIndex) => {
-        let line = `${stringName}|`;
-
-        row.forEach((step) => {
-          const originalIndex = STRINGS.length - 1 - stringIndex;
-
-          const note = step.find(
-            (n) => n.stringIndex === originalIndex
-          );
-
-          if (note) {
-            const fret = Math.max(note.fret - capo, 0);
-            line += `--${fret}--`;
-          } else {
-            line += "-----";
-          }
-        });
-
-        line += "|";
-        return line;
-      });
-
-      lines.forEach((line) => {
-        pdf.text(line, margin, y);
-        y += 14;
-      });
-
-      y += 20;
-    });
-
-    pdf.save("guitar-tab.pdf");
+    URL.revokeObjectURL(url);
   };
 
-  const showWarning =
-    currentRowData.length >= MAX_STEPS_PER_LINE;
+  // =========================
+  // ✅ IMPORT WORK
+  // =========================
+  const importWork = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+
+        if (data.tabRows) setTabRows(data.tabRows);
+        if (data.capo !== undefined) setCapo(data.capo);
+        if (data.tempo !== undefined) setTempo(data.tempo);
+        if (data.playMode) setPlayMode(data.playMode);
+
+        setCurrentRow(0);
+        setEditingStepIndex(null);
+        setSelectedNotes([]);
+      } catch (err) {
+        alert("Invalid file format");
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+const exportPDF = async () => {
+  if (tabRows.length === 0) return;
+
+  const fileName = prompt("Enter PDF file name:", "guitar-tab");
+  if (!fileName) return;
+
+  const pdf = new jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "a4",
+  });
+
+  const margin = 40;
+  let y = 60;
+
+  pdf.setFont("Courier", "normal"); // monospace font
+  pdf.setFontSize(12);
+
+  // Title
+  pdf.text("Guitar Tab Sheet", margin, y);
+  y += 20;
+
+  if (capo > 0) {
+    pdf.text(`Capo on fret ${capo}`, margin, y);
+    y += 20;
+  }
+
+  const STRINGS = ["E", "A", "D", "G", "B", "E"];
+
+  tabRows.forEach((row, rowIndex) => {
+    if (!row || row.length === 0) return;
+
+    pdf.text(`Section ${rowIndex + 1}`, margin, y);
+    y += 16;
+
+    STRINGS.forEach((stringName, stringIndex) => {
+      let line = `${stringName}|`;
+
+      row.forEach((step) => {
+        const note = step.find((n) => n.stringIndex === stringIndex);
+
+        if (note) {
+          const fret = Math.max(note.fret - capo, 0);
+          const fretStr = fret.toString().padStart(2, "0");
+
+          line += `${fretStr}---`; // 3 dashes after each note
+        } else {
+          line += `-----`; // wider gap for empty steps
+        }
+      });
+
+      line += "|";
+      pdf.text(line, margin, y);
+      y += 16; // vertical spacing between lines
+    });
+
+    y += 24; // extra space between sections
+  });
+
+  pdf.save(`${fileName}.pdf`);
+};
+
+  const showWarning = currentRowData.length >= MAX_STEPS_PER_LINE;
 
   return (
     <div style={main}>
@@ -240,10 +290,7 @@ function App() {
             ))}
           </select>
 
-          <button
-            onClick={() => setCapoLocked((p) => !p)}
-            style={btnGhost}
-          >
+          <button onClick={() => setCapoLocked((p) => !p)} style={btnGhost}>
             {capoLocked ? "🔓" : "🔒"}
           </button>
         </div>
@@ -270,12 +317,27 @@ function App() {
           <span style={{ opacity: 0.6 }}>BPM</span>
         </div>
 
+        {/* Save / Import / Export */}
+        <button style={btnGhost} onClick={saveWork}>
+          💾 Save
+        </button>
+
+        <label style={btnGhost}>
+          📂 Import
+          <input
+            type="file"
+            accept=".json"
+            onChange={importWork}
+            style={{ display: "none" }}
+          />
+        </label>
+
         <button style={btnGhost} onClick={exportPDF}>
           ⬇ Export
         </button>
       </div>
 
-      {/* Scrollable Tab History */}
+      {/* Tab History */}
       <div
         ref={rowsContainerRef}
         style={{
@@ -337,9 +399,7 @@ function App() {
         <button
           style={btnGhost}
           onClick={() =>
-            setPlayMode((p) =>
-              p === "chord" ? "arpeggio" : "chord"
-            )
+            setPlayMode((p) => (p === "chord" ? "arpeggio" : "chord"))
           }
         >
           {playMode === "chord" ? "Chord" : "Arpeggio"}
