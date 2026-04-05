@@ -3,7 +3,10 @@ name: Deploy React App to GitHub Pages
 on:
   push:
     tags:
-      - "v*.*.*"   # triggers on version tags like v1.0.0
+      - "v*.*.*"
+
+permissions:
+  contents: write   # ✅ REQUIRED
 
 jobs:
   deploy:
