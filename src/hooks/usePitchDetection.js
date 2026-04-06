@@ -3,66 +3,125 @@ import { PitchDetector } from "pitchy";
 
 export default function usePitchDetection(active) {
   const [note, setNote] = useState(null);
+
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      cleanup();
+      return;
+    }
 
-    let rafId;
+    let isMounted = true;
 
     const init = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      try {
+        // 🎤 Request mic (this triggers permission popup)
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+        });
 
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
+        if (!isMounted) return;
 
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
+        streamRef.current = stream;
 
-      analyser.fftSize = 2048;
-      analyserRef.current = analyser;
+        const audioContext = new AudioContext();
+        audioContextRef.current = audioContext;
 
-      source.connect(analyser);
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
 
-      const detector = PitchDetector.forFloat32Array(analyser.fftSize);
-      const input = new Float32Array(detector.inputLength);
+        analyser.fftSize = 2048;
+        analyserRef.current = analyser;
 
-      const updatePitch = () => {
-        analyser.getFloatTimeDomainData(input);
+        source.connect(analyser);
 
-        const [pitch, clarity] = detector.findPitch(
-          input,
-          audioContext.sampleRate
-        );
+        const detector = PitchDetector.forFloat32Array(analyser.fftSize);
+        const input = new Float32Array(detector.inputLength);
 
-        if (clarity > 0.92 && pitch > 60 && pitch < 1200) {
-          const detected = freqToNote(pitch);
-          setNote(detected);
-        }
+        const updatePitch = () => {
+          analyser.getFloatTimeDomainData(input);
 
-        rafId = requestAnimationFrame(updatePitch);
-      };
+          const [pitch, clarity] = detector.findPitch(
+            input,
+            audioContext.sampleRate
+          );
 
-      updatePitch();
+          if (clarity > 0.92 && pitch > 60 && pitch < 1200) {
+            const detected = freqToNote(pitch);
+            setNote(detected);
+          } else {
+            setNote(null);
+          }
+
+          rafRef.current = requestAnimationFrame(updatePitch);
+        };
+
+        updatePitch();
+      } catch (err) {
+        console.error("🎤 Mic error:", err);
+      }
     };
 
     init();
 
     return () => {
-      cancelAnimationFrame(rafId);
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
+      isMounted = false;
+      cleanup();
     };
   }, [active]);
+
+  /* =========================
+     CLEANUP (VERY IMPORTANT)
+  ========================= */
+  const cleanup = () => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+
+    analyserRef.current = null;
+    setNote(null);
+  };
 
   return note;
 }
 
+/* =========================
+   Frequency → Note
+========================= */
 function freqToNote(freq) {
   const A4 = 440;
-  const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const notes = [
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+    "A",
+    "A#",
+    "B",
+  ];
 
   const n = Math.round(12 * Math.log2(freq / A4)) + 69;
   return notes[n % 12];

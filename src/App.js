@@ -1,16 +1,13 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import Fretboard from "./components/Fretboard";
 import Toolbar from "./components/Toolbar";
 import TransportControls from "./components/TransportControls";
 import TabHistory from "./components/TabHistory";
-import PracticePanel from "./components/PracticePanel";
+import PracticeContainer from "./practice/PracticeContainer"; // ✅ NEW
 
 import { playTab, playSelectedNotes } from "./utils/tabUtils";
 import { saveWork, importWork } from "./utils/fileUtils";
 import { exportPDF } from "./services/pdfService";
-
-import usePitchDetection from "./hooks/usePitchDetection";
-import { getExpectedNotes, isCorrectNote } from "./utils/practiceUtils";
 
 function App() {
   const [capo, setCapo] = useState(0);
@@ -24,15 +21,10 @@ function App() {
   const [editingStepIndex, setEditingStepIndex] = useState(null);
   const [playMode, setPlayMode] = useState("chord");
 
-  /* 🎯 PRACTICE STATE */
+  /* 🎯 PRACTICE MODE TOGGLE ONLY */
   const [practiceMode, setPracticeMode] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [feedback, setFeedback] = useState(null);
 
   const rowsContainerRef = useRef();
-
-  /* 🎤 DETECTED NOTE */
-  const detectedNote = usePitchDetection(practiceMode);
 
   /* ===============================
      ➕ ADD / EDIT STEP
@@ -72,39 +64,24 @@ function App() {
     setCurrentRow((prev) => prev + 1);
     setEditingStepIndex(null);
     setSelectedNotes([]);
-    setCurrentStepIndex(0);
   };
 
   /* ===============================
-     🎯 PRACTICE LOGIC
+     🎯 PRACTICE MODE UI
   =============================== */
-  useEffect(() => {
-    if (!practiceMode) return;
+  if (practiceMode) {
+    return (
+      <PracticeContainer
+        steps={tabRows[currentRow]?.steps || []}
+        onExit={() => setPracticeMode(false)}
+        onExport={() => exportPDF({ capo, tabRows })}
+      />
+    );
+  }
 
-    const currentStep = tabRows[currentRow]?.steps[currentStepIndex];
-    if (!currentStep) return;
-
-    const expected = getExpectedNotes(currentStep);
-
-    if (isCorrectNote(detectedNote, expected)) {
-      setFeedback("correct");
-
-      setTimeout(() => {
-        setCurrentStepIndex((prev) => prev + 1);
-      }, 300);
-    } else if (detectedNote) {
-      setFeedback("wrong");
-    }
-  }, [detectedNote, practiceMode, currentStepIndex, currentRow, tabRows]);
-
-  /* Reset when practice toggles */
-  useEffect(() => {
-    if (!practiceMode) {
-      setCurrentStepIndex(0);
-      setFeedback(null);
-    }
-  }, [practiceMode]);
-
+  /* ===============================
+     🧩 EDITOR MODE UI
+  =============================== */
   return (
     <div
       style={{
@@ -129,21 +106,22 @@ function App() {
         onExport={() => exportPDF({ capo, tabRows })}
       />
 
-      {/* 🎯 Practice Panel */}
-      <PracticePanel
-        practiceMode={practiceMode}
-        setPracticeMode={setPracticeMode}
-        detectedNote={detectedNote}
-        expectedNotes={
-          tabRows[currentRow]?.steps[currentStepIndex]
-            ? getExpectedNotes(
-                tabRows[currentRow].steps[currentStepIndex]
-              )
-            : []
-        }
-        feedback={feedback}
-        currentStepIndex={currentStepIndex}
-      />
+      {/* 🎯 ENTER PRACTICE BUTTON */}
+      <div style={{ marginBottom: 12 }}>
+        <button
+          onClick={() => setPracticeMode(true)}
+          style={{
+            background: "#ff7a00",
+            color: "#fff",
+            border: "none",
+            padding: "8px 14px",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          🎯 Start Practice
+        </button>
+      </div>
 
       {/* 📜 Tab History */}
       <TabHistory
