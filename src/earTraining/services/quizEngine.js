@@ -1,17 +1,17 @@
 import { INTERVALS } from "../data/intervalData";
 
-export function generateQuestion() {
-  const randomIndex = Math.floor(
-    Math.random() * INTERVALS.length
-  );
+export function generateQuestion(selectedIntervals = null) {
+  const pool =
+    selectedIntervals && selectedIntervals.length >= 2
+      ? selectedIntervals
+      : INTERVALS;
 
-  return INTERVALS[randomIndex];
+  const randomIndex = Math.floor(Math.random() * pool.length);
+
+  return pool[randomIndex];
 }
 
-export function checkAnswer(
-  currentInterval,
-  selectedAnswer
-) {
+export function checkAnswer(currentInterval, selectedAnswer) {
   if (!currentInterval) return false;
 
   return currentInterval.id === selectedAnswer;

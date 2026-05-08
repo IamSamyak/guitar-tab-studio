@@ -1,7 +1,6 @@
 import {
-  useEffect,
-  useRef,
   useState,
+  useRef,
   useCallback,
 } from "react";
 
@@ -10,169 +9,171 @@ import {
   checkAnswer,
 } from "../services/quizEngine";
 
-import {
-  playInterval,
-} from "../services/intervalPlayer";
+import { playInterval } from "../services/intervalPlayer";
 
-function useQuizEngine(
-  mode = "ascending"
-) {
-  const [
-    currentQuestion,
-    setCurrentQuestion,
-  ] = useState(null);
+function useQuizEngine(mode = "ascending", selectedIntervals = null) {
+  const [currentQuestion, setCurrentQuestion] = useState(null);
 
-  const [score, setScore] =
-    useState(0);
+  const [score, setScore] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [lastResult, setLastResult] = useState(null);
 
-  const [total, setTotal] =
-    useState(0);
-
-  const [
-    lastResult,
-    setLastResult,
-  ] = useState(null);
+  const busyRef = useRef(false);
+  const startedRef = useRef(false);
 
   /* =====================================
-     STRICT MODE FIX
+     AUDIO PLAYER
   ===================================== */
-  const initialized =
-    useRef(false);
+  const playQuestion = useCallback(
+    async (question) => {
+      if (!startedRef.current) {
+        console.log("🚫 Not started yet");
+        return;
+      }
 
-  const busyRef =
-    useRef(false);
+      if (!question) {
+        console.log("🚫 No question");
+        return;
+      }
 
-  /* =====================================
-     NEXT QUESTION
-  ===================================== */
-  const nextQuestion =
-    useCallback(async () => {
-      // prevent overlapping playback
       if (busyRef.current) {
+        console.log("⏳ Busy skipping audio");
         return;
       }
 
       busyRef.current = true;
 
+      console.log("🎧 Playing:", question);
+
       try {
-        const question =
-          generateQuestion();
-
-        setCurrentQuestion(
-          question
-        );
-
-        await playInterval(
-          question,
-          mode
-        );
+        await playInterval(question, mode);
       } catch (err) {
-        console.error(
-          "Quiz playback error",
-          err
-        );
+        console.error("❌ Playback error:", err);
       }
 
-      // allow next playback later
       setTimeout(() => {
         busyRef.current = false;
-      }, 1500);
-    }, [mode]);
+      }, 1200);
+    },
+    [mode]
+  );
 
   /* =====================================
-     START FIRST QUESTION
+     GENERATE QUESTION
   ===================================== */
-  useEffect(() => {
-    // prevent React strict mode
-    // double execution
-    if (initialized.current) {
+  const nextQuestion = useCallback(() => {
+    if (!startedRef.current) {
+      console.log("🚫 Quiz not started");
       return;
     }
 
-    initialized.current = true;
+    if (!selectedIntervals || selectedIntervals.length < 2) {
+      console.log("🚫 Invalid interval selection");
+      return;
+    }
 
-    const timer =
-      setTimeout(() => {
-        nextQuestion();
-      }, 300);
+    const question = generateQuestion(selectedIntervals);
 
-    return () =>
-      clearTimeout(timer);
-  }, [nextQuestion]);
+    console.log("🎯 Generated:", question);
+
+    setCurrentQuestion(question);
+
+    playQuestion(question);
+  }, [playQuestion, selectedIntervals]);
+
+  /* =====================================
+     START QUIZ
+  ===================================== */
+  const startQuiz = useCallback(() => {
+    if (!selectedIntervals || selectedIntervals.length < 2) {
+      console.log("🚫 Select at least 2 intervals");
+      return;
+    }
+
+    console.log("🚀 START QUIZ");
+
+    startedRef.current = true;
+
+    setScore(0);
+    setTotal(0);
+    setLastResult(null);
+
+    nextQuestion();
+  }, [nextQuestion, selectedIntervals]);
+
+  /* =====================================
+     RESET QUIZ (NEW IMPORTANT)
+  ===================================== */
+  const resetQuiz = useCallback(() => {
+    console.log("🔄 RESET QUIZ");
+
+    startedRef.current = false;
+
+    setCurrentQuestion(null);
+    setScore(0);
+    setTotal(0);
+    setLastResult(null);
+  }, []);
 
   /* =====================================
      SUBMIT ANSWER
   ===================================== */
-  const submitAnswer =
-    useCallback(
-      async (answerId) => {
-        if (!currentQuestion)
-          return;
-
-        const correct =
-          checkAnswer(
-            currentQuestion,
-            answerId
-          );
-
-        setLastResult(correct);
-
-        setTotal(
-          (prev) => prev + 1
-        );
-
-        if (correct) {
-          setScore(
-            (prev) => prev + 1
-          );
-        }
-
-        // wait before next playback
-        setTimeout(() => {
-          nextQuestion();
-        }, 1200);
-      },
-      [currentQuestion, nextQuestion]
-    );
-
-  /* =====================================
-     REPLAY CURRENT
-  ===================================== */
-  const replay =
-    useCallback(async () => {
-      if (
-        !currentQuestion ||
-        busyRef.current
-      ) {
+  const submitAnswer = useCallback(
+    (answerId) => {
+      if (!startedRef.current || !currentQuestion) {
+        console.log("🚫 Cannot answer yet");
         return;
       }
 
-      busyRef.current = true;
+      const correct = checkAnswer(currentQuestion, answerId);
 
-      try {
-        await playInterval(
-          currentQuestion,
-          mode
-        );
-      } catch (err) {
-        console.error(
-          "Replay error",
-          err
-        );
+      console.log("📩 Answer:", answerId, "Correct:", correct);
+
+      setLastResult(correct);
+      setTotal((t) => t + 1);
+
+      if (correct) {
+        setScore((s) => s + 1);
       }
 
       setTimeout(() => {
-        busyRef.current = false;
-      }, 1500);
-    }, [currentQuestion, mode]);
+        nextQuestion();
+      }, 1000);
+    },
+    [currentQuestion, nextQuestion]
+  );
+
+  /* =====================================
+     REPLAY
+  ===================================== */
+  const replay = useCallback(() => {
+    if (!startedRef.current) {
+      console.log("🚫 Quiz not started");
+      return;
+    }
+
+    if (!currentQuestion) {
+      console.log("🚫 No question");
+      return;
+    }
+
+    console.log("🔁 Replay:", currentQuestion);
+
+    playQuestion(currentQuestion);
+  }, [currentQuestion, playQuestion]);
 
   return {
     currentQuestion,
     score,
     total,
     lastResult,
+
     submitAnswer,
     replay,
+    startQuiz,
+    resetQuiz, // 🔥 NEW
+
+    isStarted: startedRef.current,
   };
 }
 
