@@ -1,4 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, {
+  useState,
+  useRef,
+} from "react";
 
 import Fretboard from "./components/Fretboard";
 import Toolbar from "./components/Toolbar";
@@ -8,7 +11,10 @@ import TabHistory from "./components/TabHistory";
 import PracticeContainer from "./practice/PracticeContainer";
 
 import IntervalPractice from "./earTraining/components/IntervalPractice";
+
 import IntervalQuiz from "./earTraining/components/IntervalQuiz";
+
+import SequenceIntervalQuiz from "./earTraining/components/SequenceIntervalQuiz";
 
 import {
   playTab,
@@ -23,45 +29,58 @@ import {
 import { exportPDF } from "./services/pdfService";
 
 function App() {
-  const [capo, setCapo] = useState(0);
+  const [capo, setCapo] =
+    useState(0);
 
-  const [capoLocked, setCapoLocked] =
-    useState(false);
+  const [
+    capoLocked,
+    setCapoLocked,
+  ] = useState(false);
 
-  const [tempo, setTempo] = useState(90);
+  const [tempo, setTempo] =
+    useState(90);
 
-  const [selectedNotes, setSelectedNotes] =
-    useState([]);
+  const [
+    selectedNotes,
+    setSelectedNotes,
+  ] = useState([]);
 
-  const [tabRows, setTabRows] = useState([
-    {
-      name: "Section 1",
-      steps: [],
-    },
-  ]);
+  const [tabRows, setTabRows] =
+    useState([
+      {
+        name: "Section 1",
+        steps: [],
+      },
+    ]);
 
   const [currentRow, setCurrentRow] =
     useState(0);
 
-  const [editingStepIndex, setEditingStepIndex] =
-    useState(null);
+  const [
+    editingStepIndex,
+    setEditingStepIndex,
+  ] = useState(null);
 
   const [playMode, setPlayMode] =
     useState("chord");
 
   /* ================================
-     HOME SCREEN MODE
+     SCREEN STATE
   ================================= */
   const [screen, setScreen] =
     useState("home");
 
-  const rowsContainerRef = useRef();
+  const rowsContainerRef =
+    useRef();
 
   /* ================================
-     ➕ ADD / EDIT STEP
+     ADD / EDIT STEP
   ================================= */
   const handleStamp = () => {
-    if (selectedNotes.length === 0) return;
+    if (
+      selectedNotes.length === 0
+    )
+      return;
 
     setTabRows((prev) => {
       const updated = [...prev];
@@ -70,8 +89,10 @@ function App() {
         ...updated[currentRow],
       };
 
-      // EDIT EXISTING STEP
-      if (editingStepIndex !== null) {
+      /* EDIT EXISTING STEP */
+      if (
+        editingStepIndex !== null
+      ) {
         const steps = [...row.steps];
 
         steps[editingStepIndex] =
@@ -82,7 +103,7 @@ function App() {
         setEditingStepIndex(null);
       }
 
-      // ADD NEW STEP
+      /* ADD NEW STEP */
       else {
         row.steps = [
           ...row.steps,
@@ -99,18 +120,22 @@ function App() {
   };
 
   /* ================================
-     ➕ ADD NEW ROW
+     ADD NEW ROW
   ================================= */
   const addNewRow = () => {
     setTabRows((prev) => [
       ...prev,
       {
-        name: `Section ${prev.length + 1}`,
+        name: `Section ${
+          prev.length + 1
+        }`,
         steps: [],
       },
     ]);
 
-    setCurrentRow((prev) => prev + 1);
+    setCurrentRow(
+      (prev) => prev + 1
+    );
 
     setEditingStepIndex(null);
 
@@ -118,7 +143,7 @@ function App() {
   };
 
   /* ================================
-     🎯 TAB PRACTICE MODE
+     PRACTICE MODE
   ================================= */
   if (screen === "practice") {
     return (
@@ -141,8 +166,8 @@ function App() {
 
         <PracticeContainer
           steps={
-            tabRows[currentRow]?.steps ||
-            []
+            tabRows[currentRow]
+              ?.steps || []
           }
           onExit={() =>
             setScreen("home")
@@ -159,10 +184,11 @@ function App() {
   }
 
   /* ================================
-     🎧 INTERVAL PRACTICE
+     INTERVAL PRACTICE
   ================================= */
   if (
-    screen === "interval-practice"
+    screen ===
+    "interval-practice"
   ) {
     return (
       <div
@@ -188,9 +214,11 @@ function App() {
   }
 
   /* ================================
-     🧠 INTERVAL QUIZ
+     BASIC INTERVAL QUIZ
   ================================= */
-  if (screen === "interval-quiz") {
+  if (
+    screen === "interval-quiz"
+  ) {
     return (
       <div
         style={{
@@ -215,7 +243,37 @@ function App() {
   }
 
   /* ================================
-     🎸 TAB EDITOR
+     ADVANCED SEQUENCE QUIZ
+  ================================= */
+  if (
+    screen ===
+    "sequence-quiz"
+  ) {
+    return (
+      <div
+        style={{
+          padding: 20,
+          minHeight: "100vh",
+          background: "#121212",
+          color: "#fff",
+        }}
+      >
+        <button
+          onClick={() =>
+            setScreen("home")
+          }
+          style={backButtonStyle}
+        >
+          ← Back
+        </button>
+
+        <SequenceIntervalQuiz />
+      </div>
+    );
+  }
+
+  /* ================================
+     TAB EDITOR
   ================================= */
   if (screen === "editor") {
     return (
@@ -260,7 +318,9 @@ function App() {
         <Toolbar
           capo={capo}
           setCapo={setCapo}
-          capoLocked={capoLocked}
+          capoLocked={
+            capoLocked
+          }
           setCapoLocked={
             setCapoLocked
           }
@@ -298,8 +358,12 @@ function App() {
         >
           <TabHistory
             tabRows={tabRows}
-            setTabRows={setTabRows}
-            currentRow={currentRow}
+            setTabRows={
+              setTabRows
+            }
+            currentRow={
+              currentRow
+            }
             setCurrentRow={
               setCurrentRow
             }
@@ -330,7 +394,9 @@ function App() {
               selectedNotes
             }
             playMode={playMode}
-            setPlayMode={setPlayMode}
+            setPlayMode={
+              setPlayMode
+            }
             onPlaySelection={() =>
               playSelectedNotes(
                 selectedNotes,
@@ -344,8 +410,12 @@ function App() {
                 playMode
               )
             }
-            onAddStep={handleStamp}
-            onNewRow={addNewRow}
+            onAddStep={
+              handleStamp
+            }
+            onNewRow={
+              addNewRow
+            }
             isEditing={
               editingStepIndex !==
               null
@@ -379,7 +449,7 @@ function App() {
   }
 
   /* ================================
-     🏠 HOME SCREEN
+     HOME SCREEN
   ================================= */
   return (
     <div
@@ -389,7 +459,8 @@ function App() {
           "linear-gradient(to bottom, #121212, #1b1b1b)",
         color: "#fff",
         display: "flex",
-        justifyContent: "center",
+        justifyContent:
+          "center",
         alignItems: "center",
         padding: 20,
       }}
@@ -397,7 +468,7 @@ function App() {
       <div
         style={{
           width: "100%",
-          maxWidth: 900,
+          maxWidth: 1000,
         }}
       >
         {/* TITLE */}
@@ -422,8 +493,9 @@ function App() {
               fontSize: 18,
             }}
           >
-            Practice • Ear Training •
-            Tab Creation
+            Practice • Ear
+            Training • Tab
+            Creation
           </p>
         </div>
 
@@ -442,7 +514,9 @@ function App() {
             description="Create, edit and play guitar tabs."
             color="#ff7a00"
             onClick={() =>
-              setScreen("editor")
+              setScreen(
+                "editor"
+              )
             }
           />
 
@@ -452,7 +526,9 @@ function App() {
             description="Practice your saved tabs interactively."
             color="#0066ff"
             onClick={() =>
-              setScreen("practice")
+              setScreen(
+                "practice"
+              )
             }
           />
 
@@ -471,11 +547,23 @@ function App() {
           <FeatureCard
             title="Interval Quiz"
             icon="🧠"
-            description="Test interval recognition skills."
+            description="Basic single interval recognition."
             color="#00aa55"
             onClick={() =>
               setScreen(
                 "interval-quiz"
+              )
+            }
+          />
+
+          <FeatureCard
+            title="Sequence Quiz"
+            icon="🔥"
+            description="Advanced interval sequence recognition."
+            color="#ff0055"
+            onClick={() =>
+              setScreen(
+                "sequence-quiz"
               )
             }
           />
@@ -500,11 +588,13 @@ function FeatureCard({
       onClick={onClick}
       style={{
         background: "#1d1d1d",
-        border: "1px solid #2f2f2f",
+        border:
+          "1px solid #2f2f2f",
         borderRadius: 20,
         padding: 28,
         cursor: "pointer",
-        transition: "0.2s ease",
+        transition:
+          "0.2s ease",
         boxShadow:
           "0 4px 20px rgba(0,0,0,0.25)",
       }}
