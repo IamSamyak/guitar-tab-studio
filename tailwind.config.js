@@ -3,8 +3,15 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  // tailwind.config.js
+
   theme: {
-    extend: {},
+    extend: {
+      animation: {
+        "spin-slow":
+          "spin 12s linear infinite",
+      },
+    },
   },
   plugins: [],
 }
