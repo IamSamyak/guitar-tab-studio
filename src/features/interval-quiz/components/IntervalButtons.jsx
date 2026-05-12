@@ -1,6 +1,6 @@
 // src/features/interval-quiz/components/IntervalButtons.jsx
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function IntervalButtons({
   options,
@@ -9,273 +9,172 @@ export default function IntervalButtons({
   showFeedback,
   correctAnswer,
 }) {
-  function getClasses(interval) {
-    const isSelected =
-      selectedAnswer?.id === interval.id;
+  function getState(interval) {
+    const isSelected = selectedAnswer?.id === interval.id;
+    const isCorrect = correctAnswer?.id === interval.id;
 
-    const isCorrect =
-      correctAnswer?.id === interval.id;
-
-    // Base classes
-    let classes = `
-      group
-      relative
-      overflow-hidden
-
-      min-h-[92px]
-
-      rounded-[26px]
-
-      border border-white/10
-      bg-white/5
-
-      px-3
-      py-4
-
-      backdrop-blur-2xl
-
-      transition-all
-      duration-300
-    `;
-
-    // Before answer
-    if (!showFeedback) {
-      classes += `
-        hover:border-cyan-400/40
-        hover:bg-cyan-500/10
-        hover:shadow-xl
-        hover:shadow-cyan-500/10
-      `;
-    }
-
-    // After answer: correct option (always green)
-    if (showFeedback && isCorrect) {
-      classes += `
-        border-emerald-400/70
-        bg-emerald-500/20
-        shadow-xl
-        shadow-emerald-500/20
-      `;
-    }
-
-    // After answer: selected wrong option (red)
-    if (
-      showFeedback &&
-      isSelected &&
-      !isCorrect
-    ) {
-      classes += `
-        border-red-400/70
-        bg-red-500/20
-        shadow-xl
-        shadow-red-500/20
-      `;
-    }
-
-    return classes;
+    if (!showFeedback) return "idle";
+    if (isCorrect) return "correct";
+    if (isSelected && !isCorrect) return "wrong";
+    return "dim";
   }
 
-  function getGlowClasses(interval) {
-    const isSelected =
-      selectedAnswer?.id === interval.id;
+  const stateStyles = {
+    idle: {
+      border: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(255,255,255,0.04)",
+      color: "#ffffff",
+      badgeBg: "rgba(255,255,255,0.06)",
+      badgeColor: "rgba(255,255,255,0.35)",
+      badgeBorder: "rgba(255,255,255,0.08)",
+      labelOpacity: 1,
+    },
+    correct: {
+      border: "1px solid rgba(52,211,153,0.45)",
+      background: "rgba(16,185,129,0.12)",
+      color: "#6ee7b7",
+      badgeBg: "rgba(6,78,59,0.4)",
+      badgeColor: "#6ee7b7",
+      badgeBorder: "rgba(52,211,153,0.2)",
+      labelOpacity: 1,
+    },
+    wrong: {
+      border: "1px solid rgba(248,113,113,0.45)",
+      background: "rgba(239,68,68,0.12)",
+      color: "#fca5a5",
+      badgeBg: "rgba(69,10,10,0.4)",
+      badgeColor: "#fca5a5",
+      badgeBorder: "rgba(248,113,113,0.2)",
+      labelOpacity: 1,
+    },
+    dim: {
+      border: "1px solid rgba(255,255,255,0.04)",
+      background: "rgba(255,255,255,0.02)",
+      color: "rgba(255,255,255,0.2)",
+      badgeBg: "rgba(255,255,255,0.03)",
+      badgeColor: "rgba(255,255,255,0.15)",
+      badgeBorder: "rgba(255,255,255,0.04)",
+      labelOpacity: 0.4,
+    },
+  };
 
-    const isCorrect =
-      correctAnswer?.id === interval.id;
-
-    // Correct answer glow
-    if (showFeedback && isCorrect) {
-      return `
-        absolute
-        inset-0
-        opacity-100
-        bg-gradient-to-br
-        from-emerald-400/20
-        via-emerald-500/10
-        to-green-500/20
-      `;
-    }
-
-    // Wrong selected glow
-    if (
-      showFeedback &&
-      isSelected &&
-      !isCorrect
-    ) {
-      return `
-        absolute
-        inset-0
-        opacity-100
-        bg-gradient-to-br
-        from-red-400/20
-        via-red-500/10
-        to-rose-500/20
-      `;
-    }
-
-    // Default hover glow
-    return `
-      absolute
-      inset-0
-      opacity-0
-      transition-opacity
-      duration-300
-      group-hover:opacity-100
-
-      bg-gradient-to-br
-      from-cyan-500/10
-      via-blue-500/10
-      to-purple-500/10
-    `;
-  }
-
-  function getLabelClasses(interval) {
-    const isSelected =
-      selectedAnswer?.id === interval.id;
-
-    const isCorrect =
-      correctAnswer?.id === interval.id;
-
-    if (showFeedback && isCorrect) {
-      return `
-        text-sm
-        font-black
-        tracking-tight
-        text-emerald-100
-        sm:text-base
-      `;
-    }
-
-    if (
-      showFeedback &&
-      isSelected &&
-      !isCorrect
-    ) {
-      return `
-        text-sm
-        font-black
-        tracking-tight
-        text-red-100
-        sm:text-base
-      `;
-    }
-
-    return `
-      text-sm
-      font-black
-      tracking-tight
-      text-white
-      sm:text-base
-    `;
-  }
-
-  function getBadgeClasses(interval) {
-    const isSelected =
-      selectedAnswer?.id === interval.id;
-
-    const isCorrect =
-      correctAnswer?.id === interval.id;
-
-    if (showFeedback && isCorrect) {
-      return `
-        mt-3
-        inline-flex
-        rounded-full
-        border border-emerald-300/30
-        bg-emerald-950/40
-        px-2 py-1
-        text-[11px]
-        font-medium
-        text-emerald-200
-      `;
-    }
-
-    if (
-      showFeedback &&
-      isSelected &&
-      !isCorrect
-    ) {
-      return `
-        mt-3
-        inline-flex
-        rounded-full
-        border border-red-300/30
-        bg-red-950/40
-        px-2 py-1
-        text-[11px]
-        font-medium
-        text-red-200
-      `;
-    }
-
-    return `
-      mt-3
-      inline-flex
-      rounded-full
-      border border-white/10
-      bg-black/20
-      px-2 py-1
-      text-[11px]
-      font-medium
-      text-zinc-400
-    `;
-  }
+  const stateIcons = {
+    correct: "✓",
+    wrong: "✗",
+  };
 
   return (
     <div
-      className="
-        grid
-        grid-cols-2
-        gap-3
-        sm:grid-cols-3
-      "
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(2, 1fr)",
+        gap: "0.6rem",
+      }}
     >
-      {options.map((interval) => (
-        <motion.button
-          key={interval.id}
-          whileHover={
-            !showFeedback
-              ? { scale: 1.03 }
-              : {}
-          }
-          whileTap={
-            !showFeedback
-              ? { scale: 0.95 }
-              : {}
-          }
-          onClick={() =>
-            onAnswer(interval)
-          }
-          disabled={showFeedback}
-          className={getClasses(
-            interval
-          )}
-        >
-          {/* INNER GLOW */}
-          <div
-            className={getGlowClasses(
-              interval
-            )}
-          />
+      {options.map((interval, i) => {
+        const state = getState(interval);
+        const s = stateStyles[state];
+        const isInteractive = !showFeedback;
 
-          <div className="relative z-10">
-            <p
-              className={getLabelClasses(
-                interval
+        return (
+          <motion.button
+            key={interval.id}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: i * 0.04 }}
+            whileHover={isInteractive ? { scale: 1.025 } : {}}
+            whileTap={isInteractive ? { scale: 0.96 } : {}}
+            onClick={() => !showFeedback && onAnswer(interval)}
+            disabled={showFeedback}
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              minHeight: 80,
+              borderRadius: "1.1rem",
+              border: s.border,
+              background: s.background,
+              color: s.color,
+              padding: "0.9rem 0.85rem",
+              cursor: isInteractive ? "pointer" : "default",
+              textAlign: "left",
+              transition: "border 0.25s, background 0.25s, color 0.25s",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+            }}
+          >
+            {/* State icon badge — top right */}
+            <AnimatePresence>
+              {(state === "correct" || state === "wrong") && (
+                <motion.div
+                  key="icon"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 22 }}
+                  style={{
+                    position: "absolute",
+                    top: "0.6rem",
+                    right: "0.7rem",
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background:
+                      state === "correct"
+                        ? "rgba(52,211,153,0.18)"
+                        : "rgba(248,113,113,0.18)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "0.7rem",
+                    fontWeight: 900,
+                    color: state === "correct" ? "#6ee7b7" : "#fca5a5",
+                  }}
+                >
+                  {stateIcons[state]}
+                </motion.div>
               )}
+            </AnimatePresence>
+
+            {/* Interval label */}
+            <span
+              style={{
+                display: "block",
+                fontSize: "clamp(0.78rem, 2.5vw, 0.88rem)",
+                fontWeight: 800,
+                letterSpacing: "-0.01em",
+                lineHeight: 1.25,
+                opacity: s.labelOpacity,
+                paddingRight: state !== "idle" && state !== "dim" ? "1.5rem" : 0,
+                transition: "opacity 0.25s",
+              }}
             >
               {interval.label}
-            </p>
+            </span>
 
-            <div
-              className={getBadgeClasses(
-                interval
-              )}
+            {/* Semitone badge */}
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginTop: "0.5rem",
+                padding: "0.2rem 0.55rem",
+                borderRadius: 9999,
+                fontSize: "0.65rem",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                background: s.badgeBg,
+                color: s.badgeColor,
+                border: `1px solid ${s.badgeBorder}`,
+                transition: "background 0.25s, color 0.25s, border 0.25s",
+                width: "fit-content",
+              }}
             >
               {interval.semitones} st
-            </div>
-          </div>
-        </motion.button>
-      ))}
+            </span>
+          </motion.button>
+        );
+      })}
     </div>
   );
 }
