@@ -70,26 +70,30 @@ export default function IntervalPracticePage() {
   ===================================== */
 
   const playCurrentInterval =
-    useCallback(async () => {
-      const { semitones } =
-        selectedInterval;
+  useCallback(async () => {
+    const { semitones } =
+      selectedInterval;
 
-      // Generate the same notes that will be displayed
-      const { root, target } =
-        getRandomRoot(semitones);
+    // Generate notes once
+    const notes =
+      getRandomRoot(semitones);
 
-      setCurrentNotes({
-        root,
-        top: target,
-      });
+    const { root, target } =
+      notes;
 
-      // Use your guitar sampler playback
-      await playInterval(
-        selectedInterval,
-        mode
-      );
-    }, [selectedInterval, mode]);
+    // Show same notes in UI
+    setCurrentNotes({
+      root,
+      top: target,
+    });
 
+    // Play the exact same notes
+    await playInterval(
+      selectedInterval,
+      mode,
+      notes
+    );
+  }, [selectedInterval, mode]);
   /* =====================================
      START / STOP SESSION
   ===================================== */

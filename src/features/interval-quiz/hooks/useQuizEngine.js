@@ -57,6 +57,16 @@ export default function useQuizEngine(
   const [showFeedback, setShowFeedback] =
     useState(false);
 
+  /**
+   * Stores the exact notes used for the current question.
+   * This ensures:
+   * - Initial play uses random notes
+   * - Replay uses the same notes
+   * - Mode change replay uses the same notes
+   */
+  const [currentPlaybackData, setCurrentPlaybackData] =
+    useState(null);
+
   const startedRef = useRef(false);
   const timeoutRef = useRef(null);
 
@@ -78,18 +88,26 @@ export default function useQuizEngine(
     }, []);
 
   /* =====================================
-     PLAY CURRENT INTERVAL
+     PLAY INTERVAL
   ===================================== */
 
   const playCurrent = useCallback(
-    async (interval) => {
-      if (!interval) return;
+    async (
+      interval,
+      playbackData = null
+    ) => {
+      if (!interval) return null;
 
       try {
-        await playInterval(
+        // If playbackData is provided, replay exact notes.
+        // Otherwise, let playInterval generate fresh random notes.
+        const result = await playInterval(
           interval,
-          mode
+          mode,
+          playbackData
         );
+
+        return result;
       } catch (error) {
         console.warn(
           "Failed to play interval:",
@@ -97,17 +115,23 @@ export default function useQuizEngine(
         );
 
         // Retry once after short delay
-        setTimeout(() => {
-          playInterval(
-            interval,
-            mode
-          ).catch((retryError) => {
-            console.error(
-              "Retry failed:",
-              retryError
-            );
-          });
-        }, 250);
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            playInterval(
+              interval,
+              mode,
+              playbackData
+            )
+              .then(resolve)
+              .catch((retryError) => {
+                console.error(
+                  "Retry failed:",
+                  retryError
+                );
+                resolve(null);
+              });
+          }, 250);
+        });
       }
     },
     [mode]
@@ -117,17 +141,30 @@ export default function useQuizEngine(
      REPLAY SAME INTERVAL
   ===================================== */
 
-  const replay = useCallback(() => {
-    if (!currentInterval) return;
-    playCurrent(currentInterval);
-  }, [currentInterval, playCurrent]);
+  const replay = useCallback(async () => {
+    if (
+      !currentInterval ||
+      !currentPlaybackData
+    ) {
+      return;
+    }
+
+    await playCurrent(
+      currentInterval,
+      currentPlaybackData
+    );
+  }, [
+    currentInterval,
+    currentPlaybackData,
+    playCurrent,
+  ]);
 
   /* =====================================
      LOAD NEXT QUESTION
   ===================================== */
 
   const nextQuestion =
-    useCallback(() => {
+    useCallback(async () => {
       if (
         !selectedIntervals ||
         selectedIntervals.length === 0
@@ -151,7 +188,13 @@ export default function useQuizEngine(
       setShowFeedback(false);
       setLastResult(null);
 
-      playCurrent(next);
+      // Generate NEW random notes for this question
+      const playbackData =
+        await playCurrent(next);
+
+      setCurrentPlaybackData(
+        playbackData
+      );
     }, [
       selectedIntervals,
       clearPendingTimeout,
@@ -162,43 +205,52 @@ export default function useQuizEngine(
      START QUIZ
   ===================================== */
 
-  const startQuiz = useCallback(() => {
-    if (
-      !selectedIntervals ||
-      selectedIntervals.length < 2
-    ) {
-      return;
-    }
+  const startQuiz = useCallback(
+    async () => {
+      if (
+        !selectedIntervals ||
+        selectedIntervals.length < 2
+      ) {
+        return;
+      }
 
-    clearPendingTimeout();
+      clearPendingTimeout();
 
-    startedRef.current = true;
+      startedRef.current = true;
 
-    setScore(0);
-    setTotal(0);
-    setCurrentQuestion(1);
-    setLastResult(null);
-    setSessionComplete(false);
-    setStatsByInterval(
-      createStats(selectedIntervals)
-    );
+      setScore(0);
+      setTotal(0);
+      setCurrentQuestion(1);
+      setLastResult(null);
+      setSessionComplete(false);
+      setStatsByInterval(
+        createStats(selectedIntervals)
+      );
 
-    // Reset feedback
-    setSelectedAnswer(null);
-    setShowFeedback(false);
+      // Reset feedback
+      setSelectedAnswer(null);
+      setShowFeedback(false);
 
-    const first = randomItem(
-      selectedIntervals
-    );
+      const first = randomItem(
+        selectedIntervals
+      );
 
-    setCurrentInterval(first);
+      setCurrentInterval(first);
 
-    playCurrent(first);
-  }, [
-    selectedIntervals,
-    clearPendingTimeout,
-    playCurrent,
-  ]);
+      // Generate NEW random notes for first question
+      const playbackData =
+        await playCurrent(first);
+
+      setCurrentPlaybackData(
+        playbackData
+      );
+    },
+    [
+      selectedIntervals,
+      clearPendingTimeout,
+      playCurrent,
+    ]
+  );
 
   /* =====================================
      SUBMIT ANSWER
@@ -335,6 +387,8 @@ export default function useQuizEngine(
     clearPendingTimeout();
 
     setCurrentInterval(null);
+    setCurrentPlaybackData(null);
+
     setScore(0);
     setTotal(0);
     setCurrentQuestion(0);
@@ -350,12 +404,14 @@ export default function useQuizEngine(
 
   /* =====================================
      REPLAY WHEN MODE CHANGES
+     Same notes, different playback style
   ===================================== */
 
   useEffect(() => {
     if (
       startedRef.current &&
-      currentInterval
+      currentInterval &&
+      currentPlaybackData
     ) {
       replay();
     }
@@ -363,6 +419,7 @@ export default function useQuizEngine(
     mode,
     replay,
     currentInterval,
+    currentPlaybackData,
   ]);
 
   /* =====================================
@@ -430,6 +487,9 @@ export default function useQuizEngine(
     statsByInterval,
     weakIntervals,
     recommendations,
+
+    // Playback
+    currentPlaybackData,
 
     // Feedback state
     selectedAnswer,

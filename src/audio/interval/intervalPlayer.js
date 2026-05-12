@@ -1,8 +1,12 @@
 // src/audio/interval/intervalPlayer.js
 
 import * as Tone from "tone";
-import { getSampler, setGlobalVolume } from "../engine/sampler";
+import {
+  getSampler,
+  setGlobalVolume,
+} from "../engine/sampler";
 import { noteToTone } from "../../theory/notes/midiUtils";
+import { getRandomRoot } from "../../shared/utils/randomNoteUtils";
 
 /* =====================================
    VOLUME
@@ -23,33 +27,10 @@ export function getIntervalVolume() {
    HELPERS
 ===================================== */
 
-function midiToNote(midi) {
-  return Tone.Frequency(midi, "midi").toNote();
-}
-
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function getStableRoot(interval) {
-  const MIN_MIDI = 48;
-  const MAX_MIDI = 71;
-  const maxRoot = MAX_MIDI - interval.semitones;
-  const availableRange = Math.max(1, maxRoot - MIN_MIDI + 1);
-
-  const id = String(interval.id ?? "");
-  let hash = 0;
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) % 100000;
-  }
-
-  const rootMidi = MIN_MIDI + (hash % availableRange);
-  const targetMidi = rootMidi + interval.semitones;
-
-  return {
-    root: midiToNote(rootMidi),
-    target: midiToNote(targetMidi),
-  };
+  return new Promise((resolve) =>
+    setTimeout(resolve, ms)
+  );
 }
 
 /* =====================================
@@ -69,41 +50,79 @@ export async function preloadSampler() {
 
 /* =====================================
    PLAY INTERVAL
+
+   fixedNotes format:
+   {
+     root: "C3",
+     target: "E3"
+   }
+
+   Behavior:
+   - If fixedNotes is provided, use them.
+   - Otherwise generate a new random root.
+   - Returns the actual notes used so callers
+     can display them if needed.
 ===================================== */
 
 export async function playInterval(
   interval,
-  mode = "ascending"
+  mode = "ascending",
+  fixedNotes = null
 ) {
   try {
-    if (!interval) return;
+    if (!interval) return null;
 
     // Unlock audio context (required by browsers)
     if (Tone.context.state !== "running") {
       await Tone.start();
     }
 
-    // getSampler() resolves only after onload fires —
-    // this is the fix for the "buffer not loaded" error
+    // Wait until sampler is fully loaded
     const sampler = await getSampler();
 
-    // Sync volume
+    // Sync global volume
     setGlobalVolume(volumeValue);
 
     // Stop any currently playing notes
     sampler.releaseAll();
 
-    const { root, target } = getStableRoot(interval);
+    // Use supplied notes or generate random notes
+    const notes =
+      fixedNotes ||
+      getRandomRoot(interval.semitones);
+
+    const { root, target } = notes;
+
+    // Convert note names into Tone.js note format
     const rootNote = noteToTone(root);
     const targetNote = noteToTone(target);
+
+    /* =====================================
+       CONSOLE LOG
+    ===================================== */
+
+    const displayPattern =
+      mode === "descending"
+        ? `${target} → ${root}`
+        : mode === "harmonic"
+        ? `${root} + ${target}`
+        : `${root} → ${target}`;
+
+    console.log(
+      `[Interval Player] ${interval.label} (${interval.short}) | Mode: ${mode} | Notes: ${displayPattern}`
+    );
 
     /* ================================
        HARMONIC
     ================================= */
 
     if (mode === "harmonic") {
-      sampler.triggerAttackRelease([rootNote, targetNote], "1n");
-      return;
+      sampler.triggerAttackRelease(
+        [rootNote, targetNote],
+        "1n"
+      );
+
+      return notes;
     }
 
     /* ================================
@@ -111,10 +130,19 @@ export async function playInterval(
     ================================= */
 
     if (mode === "ascending") {
-      sampler.triggerAttackRelease(rootNote, "1n");
+      sampler.triggerAttackRelease(
+        rootNote,
+        "1n"
+      );
+
       await sleep(900);
-      sampler.triggerAttackRelease(targetNote, "1n");
-      return;
+
+      sampler.triggerAttackRelease(
+        targetNote,
+        "1n"
+      );
+
+      return notes;
     }
 
     /* ================================
@@ -122,19 +150,43 @@ export async function playInterval(
     ================================= */
 
     if (mode === "descending") {
-      sampler.triggerAttackRelease(targetNote, "1n");
+      sampler.triggerAttackRelease(
+        targetNote,
+        "1n"
+      );
+
       await sleep(900);
-      sampler.triggerAttackRelease(rootNote, "1n");
-      return;
+
+      sampler.triggerAttackRelease(
+        rootNote,
+        "1n"
+      );
+
+      return notes;
     }
 
-    // Fallback
-    sampler.triggerAttackRelease(rootNote, "1n");
-    await sleep(900);
-    sampler.triggerAttackRelease(targetNote, "1n");
+    /* ================================
+       FALLBACK (Ascending)
+    ================================= */
 
+    sampler.triggerAttackRelease(
+      rootNote,
+      "1n"
+    );
+
+    await sleep(900);
+
+    sampler.triggerAttackRelease(
+      targetNote,
+      "1n"
+    );
+
+    return notes;
   } catch (err) {
-    console.error("❌ playInterval error", err);
+    console.error(
+      "❌ playInterval error",
+      err
+    );
     throw err;
   }
 }
