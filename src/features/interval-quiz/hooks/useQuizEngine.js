@@ -33,21 +33,52 @@ export default function useQuizEngine(
   selectedIntervals,
   sessionLength = 10
 ) {
-  const [currentInterval, setCurrentInterval] = useState(null);
+  const [currentInterval, setCurrentInterval] =
+    useState(null);
+
   const [score, setScore] = useState(0);
   const [total, setTotal] = useState(0);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [lastResult, setLastResult] = useState(null);
-  const [sessionComplete, setSessionComplete] = useState(false);
-  const [statsByInterval, setStatsByInterval] = useState({});
+  const [currentQuestion, setCurrentQuestion] =
+    useState(0);
+
+  const [lastResult, setLastResult] =
+    useState(null);
+
+  const [sessionComplete, setSessionComplete] =
+    useState(false);
+
+  const [statsByInterval, setStatsByInterval] =
+    useState({});
+
+  // Feedback state
+  const [selectedAnswer, setSelectedAnswer] =
+    useState(null);
+
+  const [showFeedback, setShowFeedback] =
+    useState(false);
 
   const startedRef = useRef(false);
   const timeoutRef = useRef(null);
 
-  const isInfinite = sessionLength === "infinite";
+  const isInfinite =
+    sessionLength === "infinite";
 
   /* =====================================
-     PLAY CURRENT
+     CLEAR TIMEOUT
+  ===================================== */
+
+  const clearPendingTimeout =
+    useCallback(() => {
+      if (timeoutRef.current) {
+        clearTimeout(
+          timeoutRef.current
+        );
+        timeoutRef.current = null;
+      }
+    }, []);
+
+  /* =====================================
+     PLAY CURRENT INTERVAL
   ===================================== */
 
   const playCurrent = useCallback(
@@ -55,16 +86,35 @@ export default function useQuizEngine(
       if (!interval) return;
 
       try {
-        await playInterval(interval, mode);
+        await playInterval(
+          interval,
+          mode
+        );
       } catch (error) {
-        console.error("Failed to play interval:", error);
+        console.warn(
+          "Failed to play interval:",
+          error
+        );
+
+        // Retry once after short delay
+        setTimeout(() => {
+          playInterval(
+            interval,
+            mode
+          ).catch((retryError) => {
+            console.error(
+              "Retry failed:",
+              retryError
+            );
+          });
+        }, 250);
       }
     },
     [mode]
   );
 
   /* =====================================
-     REPLAY
+     REPLAY SAME INTERVAL
   ===================================== */
 
   const replay = useCallback(() => {
@@ -73,115 +123,216 @@ export default function useQuizEngine(
   }, [currentInterval, playCurrent]);
 
   /* =====================================
-     NEXT QUESTION
+     LOAD NEXT QUESTION
   ===================================== */
 
-  function nextQuestion() {
-    if (!selectedIntervals || selectedIntervals.length === 0) {
-      return;
-    }
+  const nextQuestion =
+    useCallback(() => {
+      if (
+        !selectedIntervals ||
+        selectedIntervals.length === 0
+      ) {
+        return;
+      }
 
-    const next = randomItem(selectedIntervals);
+      clearPendingTimeout();
 
-    setCurrentInterval(next);
-    setCurrentQuestion((prev) => prev + 1);
+      const next = randomItem(
+        selectedIntervals
+      );
 
-    playCurrent(next);
-  }
+      setCurrentInterval(next);
+      setCurrentQuestion(
+        (prev) => prev + 1
+      );
+
+      // Reset feedback
+      setSelectedAnswer(null);
+      setShowFeedback(false);
+      setLastResult(null);
+
+      playCurrent(next);
+    }, [
+      selectedIntervals,
+      clearPendingTimeout,
+      playCurrent,
+    ]);
 
   /* =====================================
      START QUIZ
   ===================================== */
 
-  function startQuiz() {
-    if (!selectedIntervals || selectedIntervals.length < 2) {
+  const startQuiz = useCallback(() => {
+    if (
+      !selectedIntervals ||
+      selectedIntervals.length < 2
+    ) {
       return;
     }
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+    clearPendingTimeout();
 
     startedRef.current = true;
 
     setScore(0);
     setTotal(0);
-    setCurrentQuestion(0);
+    setCurrentQuestion(1);
     setLastResult(null);
     setSessionComplete(false);
-    setStatsByInterval(createStats(selectedIntervals));
+    setStatsByInterval(
+      createStats(selectedIntervals)
+    );
 
-    const first = randomItem(selectedIntervals);
+    // Reset feedback
+    setSelectedAnswer(null);
+    setShowFeedback(false);
+
+    const first = randomItem(
+      selectedIntervals
+    );
 
     setCurrentInterval(first);
-    setCurrentQuestion(1);
 
     playCurrent(first);
-  }
+  }, [
+    selectedIntervals,
+    clearPendingTimeout,
+    playCurrent,
+  ]);
 
   /* =====================================
-     ANSWER
+     SUBMIT ANSWER
   ===================================== */
 
-  function submitAnswer(id) {
-    if (!currentInterval || sessionComplete) return;
+  const submitAnswer = useCallback(
+    (answer) => {
+      if (
+        !currentInterval ||
+        sessionComplete ||
+        showFeedback
+      ) {
+        return false;
+      }
 
-    const correct = id === currentInterval.id;
+      // Supports interval object or id
+      const answerId =
+        typeof answer === "object"
+          ? answer?.id
+          : answer;
 
-    setLastResult(correct);
-    setTotal((prev) => prev + 1);
+      const selected =
+        typeof answer === "object"
+          ? answer
+          : selectedIntervals.find(
+              (i) =>
+                i.id === answerId
+            ) || null;
 
-    if (correct) {
-      setScore((prev) => prev + 1);
-    }
+      const correct =
+        answerId ===
+        currentInterval.id;
 
-    setStatsByInterval((prev) => {
-      const existing = prev[currentInterval.id];
+      // Show feedback
+      setSelectedAnswer(selected);
+      setShowFeedback(true);
+      setLastResult(correct);
 
-      if (!existing) return prev;
+      // Update totals
+      setTotal((prev) => prev + 1);
 
-      return {
-        ...prev,
-        [currentInterval.id]: {
-          ...existing,
-          correct: existing.correct + (correct ? 1 : 0),
-          wrong: existing.wrong + (correct ? 0 : 1),
-        },
-      };
-    });
+      if (correct) {
+        setScore((prev) => prev + 1);
+      }
 
-    const answeredCount = total + 1;
+      // Update stats
+      setStatsByInterval((prev) => {
+        const existing =
+          prev[currentInterval.id];
 
-    if (!isInfinite && answeredCount >= sessionLength) {
-      setSessionComplete(true);
-      return;
-    }
+        if (!existing) {
+          return prev;
+        }
 
-    timeoutRef.current = setTimeout(() => {
+        return {
+          ...prev,
+          [currentInterval.id]: {
+            ...existing,
+            correct:
+              existing.correct +
+              (correct ? 1 : 0),
+            wrong:
+              existing.wrong +
+              (correct ? 0 : 1),
+          },
+        };
+      });
+
+      const answeredCount =
+        total + 1;
+
+      // Session complete
+      if (
+        !isInfinite &&
+        answeredCount >=
+          sessionLength
+      ) {
+        timeoutRef.current =
+          setTimeout(() => {
+            setSessionComplete(
+              true
+            );
+          }, 1200);
+      }
+
+      return correct;
+    },
+    [
+      currentInterval,
+      sessionComplete,
+      showFeedback,
+      selectedIntervals,
+      total,
+      isInfinite,
+      sessionLength,
+    ]
+  );
+
+  /* =====================================
+     MANUAL NEXT QUESTION
+  ===================================== */
+
+  const goToNextQuestion =
+    useCallback(() => {
+      if (
+        sessionComplete ||
+        !showFeedback
+      ) {
+        return;
+      }
+
       nextQuestion();
-    }, 700);
-  }
+    }, [
+      sessionComplete,
+      showFeedback,
+      nextQuestion,
+    ]);
 
   /* =====================================
      FINISH SESSION
   ===================================== */
 
-  function finishSession() {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    setSessionComplete(true);
-  }
+  const finishSession =
+    useCallback(() => {
+      clearPendingTimeout();
+      setSessionComplete(true);
+    }, [clearPendingTimeout]);
 
   /* =====================================
-     RESET
+     RESET QUIZ
   ===================================== */
 
-  function resetQuiz() {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+  const resetQuiz = useCallback(() => {
+    clearPendingTimeout();
 
     setCurrentInterval(null);
     setScore(0);
@@ -191,18 +342,28 @@ export default function useQuizEngine(
     setSessionComplete(false);
     setStatsByInterval({});
 
+    setSelectedAnswer(null);
+    setShowFeedback(false);
+
     startedRef.current = false;
-  }
+  }, [clearPendingTimeout]);
 
   /* =====================================
      REPLAY WHEN MODE CHANGES
   ===================================== */
 
   useEffect(() => {
-    if (startedRef.current) {
+    if (
+      startedRef.current &&
+      currentInterval
+    ) {
       replay();
     }
-  }, [mode, replay]);
+  }, [
+    mode,
+    replay,
+    currentInterval,
+  ]);
 
   /* =====================================
      CLEANUP
@@ -210,8 +371,11 @@ export default function useQuizEngine(
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+      const timeoutId =
+        timeoutRef.current;
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
   }, []);
@@ -221,34 +385,62 @@ export default function useQuizEngine(
   ===================================== */
 
   const weakIntervals = useMemo(() => {
-    return Object.values(statsByInterval)
-      .filter((entry) => entry.wrong > 0)
-      .sort((a, b) => b.wrong - a.wrong);
+    return Object.values(
+      statsByInterval
+    )
+      .filter(
+        (entry) => entry.wrong > 0
+      )
+      .sort(
+        (a, b) =>
+          b.wrong - a.wrong
+      );
   }, [statsByInterval]);
 
-  const recommendations = useMemo(() => {
-    return weakIntervals.slice(0, 3).map((entry) => {
-      const count = entry.wrong;
+  const recommendations =
+    useMemo(() => {
+      return weakIntervals
+        .slice(0, 3)
+        .map((entry) => {
+          const count =
+            entry.wrong;
 
-      return `Practice ${entry.interval.label} — missed ${count} time${
-        count > 1 ? "s" : ""
-      }.`;
-    });
-  }, [weakIntervals]);
+          return `Practice ${entry.interval.label} — missed ${count} time${
+            count > 1 ? "s" : ""
+          }.`;
+        });
+    }, [weakIntervals]);
+
+  /* =====================================
+     RETURN API
+  ===================================== */
 
   return {
+    // Current question
     currentInterval,
+    currentQuestion,
+
+    // Score
     score,
     total,
-    currentQuestion,
     lastResult,
+
+    // Session state
     sessionComplete,
     statsByInterval,
     weakIntervals,
     recommendations,
 
+    // Feedback state
+    selectedAnswer,
+    showFeedback,
+    correctAnswer: currentInterval,
+
+    // Actions
     submitAnswer,
     replay,
+    nextQuestion,
+    goToNextQuestion,
     startQuiz,
     finishSession,
     resetQuiz,

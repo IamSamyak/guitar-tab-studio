@@ -1,7 +1,13 @@
 // src/features/interval-quiz/components/IntervalQuiz.jsx
 
-import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+import {
+  motion,
+  AnimatePresence,
+} from "framer-motion";
 
 import useQuizEngine from "../hooks/useQuizEngine";
 import { INTERVALS } from "../../../theory/intervals/intervalData";
@@ -15,7 +21,10 @@ import IntervalQuizSetup from "./IntervalQuizSetup";
 // Waveform Visualizer
 // ─────────────────────────────────────────────────────────────────────────────
 function WaveformBars() {
-  const heights = [12, 24, 36, 20, 32, 14, 28, 38, 18, 30];
+  const heights = [
+    12, 24, 36, 20, 32,
+    14, 28, 38, 18, 30,
+  ];
 
   return (
     <div
@@ -35,7 +44,8 @@ function WaveformBars() {
             width: "clamp(5px, 1vw, 8px)",
             height: h,
             borderRadius: 9999,
-            background: "rgba(255,255,255,0.55)",
+            background:
+              "rgba(255,255,255,0.55)",
             flexShrink: 0,
           }}
           animate={{
@@ -57,10 +67,19 @@ function WaveformBars() {
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 function IntervalQuiz() {
-  const [mode, setMode] = useState("ascending");
-  const [screen, setScreen] = useState("setup");
-  const [sessionLength, setSessionLength] = useState(10);
-  const [selectedIntervals, setSelectedIntervals] = useState([]);
+  const [mode, setMode] =
+    useState("ascending");
+
+  const [screen, setScreen] =
+    useState("setup");
+
+  const [sessionLength, setSessionLength] =
+    useState(10);
+
+  const [
+    selectedIntervals,
+    setSelectedIntervals,
+  ] = useState([]);
 
   const {
     score,
@@ -69,8 +88,16 @@ function IntervalQuiz() {
     sessionComplete,
     weakIntervals,
     recommendations,
+
+    // Feedback state from hook
+    selectedAnswer,
+    showFeedback,
+    correctAnswer,
+
+    // Actions
     submitAnswer,
     replay,
+    goToNextQuestion,
     startQuiz,
     resetQuiz,
     finishSession,
@@ -83,6 +110,7 @@ function IntervalQuiz() {
   const isValid =
     selectedIntervals.length >= 2;
 
+  // Move to results screen automatically
   useEffect(() => {
     if (
       screen === "quiz" &&
@@ -92,6 +120,9 @@ function IntervalQuiz() {
     }
   }, [screen, sessionComplete]);
 
+  // ─────────────────────────────────────────
+  // Interval selection
+  // ─────────────────────────────────────────
   function toggleSelectAll() {
     setSelectedIntervals(
       selectedIntervals.length ===
@@ -115,6 +146,9 @@ function IntervalQuiz() {
     });
   }
 
+  // ─────────────────────────────────────────
+  // Quiz controls
+  // ─────────────────────────────────────────
   function handleStart() {
     if (!isValid) return;
 
@@ -132,6 +166,17 @@ function IntervalQuiz() {
     setScreen("quiz");
   }
 
+  function handleAnswer(interval) {
+    submitAnswer(interval);
+  }
+
+  function handleNextQuestion() {
+    goToNextQuestion();
+  }
+
+  // ─────────────────────────────────────────
+  // UI helpers
+  // ─────────────────────────────────────────
   const progressPercent =
     sessionLength === "infinite"
       ? 100
@@ -148,6 +193,9 @@ function IntervalQuiz() {
     color: "rgba(255,255,255,0.45)",
   };
 
+  // ─────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────
   return (
     <div
       style={{
@@ -274,8 +322,6 @@ function IntervalQuiz() {
                             0.95,
                           letterSpacing:
                             "-0.05em",
-                          color:
-                            "#ffffff",
                         }}
                       >
                         Interval
@@ -305,8 +351,6 @@ function IntervalQuiz() {
                           fontSize:
                             "clamp(1.5rem,4vw,2.6rem)",
                           fontWeight: 900,
-                          color:
-                            "#ffffff",
                         }}
                       >
                         {String(
@@ -465,7 +509,9 @@ function IntervalQuiz() {
                       whileTap={{
                         scale: 0.93,
                       }}
-                      onClick={replay}
+                      onClick={
+                        replay
+                      }
                       style={{
                         display:
                           "flex",
@@ -542,9 +588,68 @@ function IntervalQuiz() {
                       selectedIntervals
                     }
                     onAnswer={
-                      submitAnswer
+                      handleAnswer
+                    }
+                    selectedAnswer={
+                      selectedAnswer
+                    }
+                    showFeedback={
+                      showFeedback
+                    }
+                    correctAnswer={
+                      correctAnswer
                     }
                   />
+
+                  {/* NEXT QUESTION BUTTON */}
+                  {showFeedback &&
+                    !sessionComplete && (
+                      <motion.button
+                        initial={{
+                          opacity: 0,
+                          y: 10,
+                        }}
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        whileHover={{
+                          scale: 1.01,
+                        }}
+                        whileTap={{
+                          scale: 0.985,
+                        }}
+                        onClick={
+                          handleNextQuestion
+                        }
+                        style={{
+                          marginTop:
+                            "1rem",
+                          width: "100%",
+                          border:
+                            "none",
+                          borderRadius:
+                            "1rem",
+                          padding:
+                            "1rem 1.25rem",
+                          background:
+                            "rgba(255,255,255,0.08)",
+                          color:
+                            "#ffffff",
+                          fontSize:
+                            "0.78rem",
+                          fontWeight: 700,
+                          letterSpacing:
+                            "0.18em",
+                          textTransform:
+                            "uppercase",
+                          cursor:
+                            "pointer",
+                        }}
+                      >
+                        Next Question
+                      </motion.button>
+                    )}
                 </section>
               </div>
             </motion.div>
