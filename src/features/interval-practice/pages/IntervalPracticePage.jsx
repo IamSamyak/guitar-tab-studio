@@ -1,60 +1,42 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+// src/features/interval-practice/pages/IntervalPracticePage.jsx
+
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { motion } from "framer-motion";
-import * as Tone from "tone";
 
 import { INTERVALS } from "../../../theory/intervals/intervalData";
 import IntervalControls from "../components/IntervalControls";
 
-const ALL_NOTES = [
-  "C3",
-  "C#3",
-  "D3",
-  "D#3",
-  "E3",
-  "F3",
-  "F#3",
-  "G3",
-  "G#3",
-  "A3",
-  "A#3",
-  "B3",
-  "C4",
-  "C#4",
-  "D4",
-  "D#4",
-  "E4",
-  "F4",
-  "F#4",
-  "G4",
-  "G#4",
-  "A4",
-  "A#4",
-  "B4",
-];
+import {
+  playInterval,
+  setIntervalVolume,
+} from "../../../audio/interval/intervalPlayer";
 
-function getRandomRootNote(semitones) {
-  const maxIndex = ALL_NOTES.length - 1 - semitones;
-  const rootIndex = Math.floor(Math.random() * (maxIndex + 1));
-  return ALL_NOTES[rootIndex];
-}
-
-function getNoteByOffset(rootNote, semitones) {
-  const rootIndex = ALL_NOTES.indexOf(rootNote);
-  return ALL_NOTES[rootIndex + semitones];
-}
+import { getRandomRoot } from "../../../shared/utils/randomNoteUtils";
 
 export default function IntervalPracticePage() {
-  const [selectedInterval, setSelectedInterval] = useState(INTERVALS[0]);
+  const [selectedInterval, setSelectedInterval] =
+    useState(INTERVALS[0]);
 
-  const [mode, setMode] = useState("ascending");
+  const [mode, setMode] =
+    useState("ascending");
 
-  const [speed, setSpeed] = useState(2000);
+  const [speed, setSpeed] =
+    useState(2000);
 
-  const [volume, setVolume] = useState(0);
+  // dB value used by your shared sampler
+  const [volume, setVolume] =
+    useState(8);
 
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] =
+    useState(false);
 
-  const [sessionDuration, setSessionDuration] = useState(300);
+  const [sessionDuration, setSessionDuration] =
+    useState(300);
 
   const [timeRemaining, setTimeRemaining] =
     useState(sessionDuration);
@@ -62,11 +44,12 @@ export default function IntervalPracticePage() {
   const [currentNotes, setCurrentNotes] =
     useState(null);
 
-  const synthRef = useRef(null);
-
   const intervalRef = useRef(null);
-
   const timerRef = useRef(null);
+
+  /* =====================================
+     RESET TIMER WHEN SESSION LENGTH CHANGES
+  ===================================== */
 
   useEffect(() => {
     if (!running) {
@@ -74,130 +57,97 @@ export default function IntervalPracticePage() {
     }
   }, [sessionDuration, running]);
 
-  useEffect(() => {
-    synthRef.current = new Tone.PolySynth(
-      Tone.Synth,
-      {
-        oscillator: {
-          type: "triangle",
-        },
-
-        envelope: {
-          attack: 0.02,
-          decay: 0.3,
-          sustain: 0.4,
-          release: 1.2,
-        },
-      }
-    ).toDestination();
-
-    return () => {
-      synthRef.current?.dispose();
-    };
-  }, []);
+  /* =====================================
+     SYNC GLOBAL GUITAR SAMPLER VOLUME
+  ===================================== */
 
   useEffect(() => {
-    if (synthRef.current) {
-      synthRef.current.volume.value = volume;
-    }
+    setIntervalVolume(volume);
   }, [volume]);
 
-  const playInterval = useCallback(async () => {
-    await Tone.start();
+  /* =====================================
+     PLAY CURRENT INTERVAL
+  ===================================== */
 
-    const { semitones } = selectedInterval;
+  const playCurrentInterval =
+    useCallback(async () => {
+      const { semitones } =
+        selectedInterval;
 
-    const root = getRandomRootNote(semitones);
+      // Generate the same notes that will be displayed
+      const { root, target } =
+        getRandomRoot(semitones);
 
-    const top = getNoteByOffset(
-      root,
-      semitones
-    );
-
-    setCurrentNotes({ root, top });
-
-    const now = Tone.now();
-
-    const synth = synthRef.current;
-
-    if (mode === "ascending") {
-      synth.triggerAttackRelease(
+      setCurrentNotes({
         root,
-        "2n",
-        now
-      );
+        top: target,
+      });
 
-      synth.triggerAttackRelease(
-        top,
-        "2n",
-        now + 0.6
+      // Use your guitar sampler playback
+      await playInterval(
+        selectedInterval,
+        mode
       );
-    } else if (mode === "descending") {
-      synth.triggerAttackRelease(
-        top,
-        "2n",
-        now
-      );
+    }, [selectedInterval, mode]);
 
-      synth.triggerAttackRelease(
-        root,
-        "2n",
-        now + 0.6
-      );
-    } else {
-      synth.triggerAttackRelease(
-        [root, top],
-        "2n",
-        now
-      );
-    }
-  }, [selectedInterval, mode]);
+  /* =====================================
+     START / STOP SESSION
+  ===================================== */
 
   useEffect(() => {
     if (running) {
-      playInterval();
+      // Play immediately
+      playCurrentInterval();
 
-      intervalRef.current = setInterval(
-        playInterval,
-        speed
-      );
+      // Repeat playback
+      intervalRef.current =
+        setInterval(
+          playCurrentInterval,
+          speed
+        );
 
-      timerRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            setRunning(false);
+      // Countdown timer
+      timerRef.current =
+        setInterval(() => {
+          setTimeRemaining((prev) => {
+            if (prev <= 1) {
+              setRunning(false);
+              return sessionDuration;
+            }
 
-            return sessionDuration;
-          }
-
-          return prev - 1;
-        });
-      }, 1000);
+            return prev - 1;
+          });
+        }, 1000);
     } else {
       clearInterval(intervalRef.current);
-
       clearInterval(timerRef.current);
 
       setCurrentNotes(null);
-
       setTimeRemaining(sessionDuration);
     }
 
     return () => {
       clearInterval(intervalRef.current);
-
       clearInterval(timerRef.current);
     };
   }, [
     running,
     speed,
-    playInterval,
     sessionDuration,
+    playCurrentInterval,
   ]);
+
+  /* =====================================
+     TOGGLE START / STOP
+  ===================================== */
 
   const handleToggleRunning = () => {
     setRunning((prev) => !prev);
   };
+
+  /* =====================================
+     FORMAT MM:SS
+  ===================================== */
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60)
@@ -312,8 +262,9 @@ export default function IntervalPracticePage() {
 
           <p className="mt-5 max-w-2xl text-sm leading-8 text-white/45 lg:text-base">
             Build interval recognition with
-            focused listening sessions designed
-            for guitar players and musicians.
+            focused listening sessions
+            designed for guitar players and
+            musicians.
           </p>
         </motion.div>
 
@@ -350,8 +301,7 @@ export default function IntervalPracticePage() {
                     <p className="mt-3 font-mono text-lg text-white/55">
                       {mode === "descending"
                         ? `${currentNotes.top} → ${currentNotes.root}`
-                        : mode ===
-                          "harmonic"
+                        : mode === "harmonic"
                         ? `${currentNotes.root} + ${currentNotes.top}`
                         : `${currentNotes.root} → ${currentNotes.top}`}
                     </p>
@@ -365,7 +315,8 @@ export default function IntervalPracticePage() {
                     </p>
 
                     <p className="mt-2 text-sm text-white/25">
-                      Focused interval training
+                      Focused interval
+                      training
                     </p>
                   </div>
                 </div>
@@ -381,7 +332,9 @@ export default function IntervalPracticePage() {
                   </span>
 
                   <span className="font-mono text-2xl font-semibold text-white">
-                    {formatTime(timeRemaining)}
+                    {formatTime(
+                      timeRemaining
+                    )}
                   </span>
                 </div>
 
@@ -401,7 +354,7 @@ export default function IntervalPracticePage() {
             )}
           </motion.div>
 
-          {/* RIGHT */}
+          {/* RIGHT CONTROLS */}
           <IntervalControls
             selectedInterval={
               selectedInterval
