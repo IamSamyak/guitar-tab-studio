@@ -105,37 +105,52 @@ export default function useQuizEngine(
   ===================================== */
 
   const replay = useCallback(async () => {
-    if (!currentInterval || !currentPlaybackData) return;
+    if (!currentInterval || !currentPlaybackData)
+      return;
 
     await playCurrent(
       currentInterval,
       currentPlaybackData
     );
-  }, [currentInterval, currentPlaybackData, playCurrent]);
+  }, [
+    currentInterval,
+    currentPlaybackData,
+    playCurrent,
+  ]);
 
   /* =====================================
-     NEXT QUESTION (ONLY PLACE AUDIO IS GENERATED)
+     NEXT QUESTION
   ===================================== */
 
   const nextQuestion = useCallback(async () => {
-    if (!selectedIntervals?.length) return;
+    // 🚨 Do not generate another question if session is complete
+    if (
+      sessionComplete ||
+      !selectedIntervals?.length
+    ) {
+      return;
+    }
 
     clearPendingTimeout();
 
-    const next = randomItem(selectedIntervals);
+    const next =
+      randomItem(selectedIntervals);
 
     setCurrentInterval(next);
     setCurrentQuestion((prev) => prev + 1);
 
+    // Reset feedback state
     setSelectedAnswer(null);
     setShowFeedback(false);
     setLastResult(null);
 
-    // 🎯 SINGLE SOURCE OF TRUTH FOR AUDIO
-    const playbackData = await playCurrent(next);
+    // Play audio
+    const playbackData =
+      await playCurrent(next);
 
     setCurrentPlaybackData(playbackData);
   }, [
+    sessionComplete,
     selectedIntervals,
     clearPendingTimeout,
     playCurrent,
@@ -146,7 +161,12 @@ export default function useQuizEngine(
   ===================================== */
 
   const startQuiz = useCallback(async () => {
-    if (!selectedIntervals || selectedIntervals.length < 2) return;
+    if (
+      !selectedIntervals ||
+      selectedIntervals.length < 2
+    ) {
+      return;
+    }
 
     clearPendingTimeout();
 
@@ -154,19 +174,26 @@ export default function useQuizEngine(
 
     setScore(0);
     setTotal(0);
+
+    // First question is #1
     setCurrentQuestion(1);
+
     setLastResult(null);
     setSessionComplete(false);
-    setStatsByInterval(createStats(selectedIntervals));
+    setStatsByInterval(
+      createStats(selectedIntervals)
+    );
 
     setSelectedAnswer(null);
     setShowFeedback(false);
 
-    const first = randomItem(selectedIntervals);
+    const first =
+      randomItem(selectedIntervals);
 
     setCurrentInterval(first);
 
-    const playbackData = await playCurrent(first);
+    const playbackData =
+      await playCurrent(first);
 
     setCurrentPlaybackData(playbackData);
   }, [
@@ -181,7 +208,13 @@ export default function useQuizEngine(
 
   const submitAnswer = useCallback(
     (answer) => {
-      if (!currentInterval || sessionComplete || showFeedback) return false;
+      if (
+        !currentInterval ||
+        sessionComplete ||
+        showFeedback
+      ) {
+        return false;
+      }
 
       const answerId =
         typeof answer === "object"
@@ -191,39 +224,61 @@ export default function useQuizEngine(
       const selected =
         typeof answer === "object"
           ? answer
-          : selectedIntervals.find((i) => i.id === answerId) || null;
+          : selectedIntervals.find(
+              (i) =>
+                i.id === answerId
+            ) || null;
 
-      const correct = answerId === currentInterval.id;
+      const correct =
+        answerId === currentInterval.id;
 
+      // Show feedback
       setSelectedAnswer(selected);
       setShowFeedback(true);
       setLastResult(correct);
 
-      setTotal((prev) => prev + 1);
+      // Update score
+      if (correct) {
+        setScore((prev) => prev + 1);
+      }
 
-      if (correct) setScore((prev) => prev + 1);
-
+      // Update stats
       setStatsByInterval((prev) => {
-        const existing = prev[currentInterval.id];
+        const existing =
+          prev[currentInterval.id];
+
         if (!existing) return prev;
 
         return {
           ...prev,
           [currentInterval.id]: {
             ...existing,
-            correct: existing.correct + (correct ? 1 : 0),
-            wrong: existing.wrong + (correct ? 0 : 1),
+            correct:
+              existing.correct +
+              (correct ? 1 : 0),
+            wrong:
+              existing.wrong +
+              (correct ? 0 : 1),
           },
         };
       });
 
-      const answeredCount = total + 1;
+      // Update total and determine if quiz is complete
+      setTotal((prevTotal) => {
+        const newTotal =
+          prevTotal + 1;
 
-      if (!isInfinite && answeredCount >= sessionLength) {
-        timeoutRef.current = setTimeout(() => {
+        if (
+          !isInfinite &&
+          newTotal >=
+            Number(sessionLength)
+        ) {
+          // Mark complete immediately
           setSessionComplete(true);
-        }, 1200);
-      }
+        }
+
+        return newTotal;
+      });
 
       return correct;
     },
@@ -232,7 +287,6 @@ export default function useQuizEngine(
       sessionComplete,
       showFeedback,
       selectedIntervals,
-      total,
       isInfinite,
       sessionLength,
     ]
@@ -242,22 +296,37 @@ export default function useQuizEngine(
      NEXT BUTTON AFTER FEEDBACK
   ===================================== */
 
-  const goToNextQuestion = useCallback(() => {
-    if (sessionComplete || !showFeedback) return;
-    nextQuestion();
-  }, [sessionComplete, showFeedback, nextQuestion]);
+  const goToNextQuestion =
+    useCallback(() => {
+      // Don't continue if:
+      // - quiz is finished
+      // - feedback is not showing
+      if (
+        sessionComplete ||
+        !showFeedback
+      ) {
+        return;
+      }
+
+      nextQuestion();
+    }, [
+      sessionComplete,
+      showFeedback,
+      nextQuestion,
+    ]);
 
   /* =====================================
-     FINISH
+     FINISH SESSION EARLY
   ===================================== */
 
-  const finishSession = useCallback(() => {
-    clearPendingTimeout();
-    setSessionComplete(true);
-  }, [clearPendingTimeout]);
+  const finishSession =
+    useCallback(() => {
+      clearPendingTimeout();
+      setSessionComplete(true);
+    }, [clearPendingTimeout]);
 
   /* =====================================
-     RESET
+     RESET QUIZ
   ===================================== */
 
   const resetQuiz = useCallback(() => {
@@ -280,40 +349,47 @@ export default function useQuizEngine(
   }, [clearPendingTimeout]);
 
   /* =====================================
-     🚨 FIXED: REMOVED AUTO-REPLAY EFFECT
-     (THIS WAS CAUSING DOUBLE AUDIO)
-  ===================================== */
-
-  // ❌ DO NOT auto-play on mode change anymore
-  // Mode change should NOT trigger audio automatically
-
-  /* =====================================
      CLEANUP
   ===================================== */
 
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+        clearTimeout(
+          timeoutRef.current
+        );
       }
     };
   }, []);
 
   /* =====================================
-     ANALYSIS
+     WEAK INTERVALS ANALYSIS
   ===================================== */
 
   const weakIntervals = useMemo(() => {
-    return Object.values(statsByInterval)
-      .filter((entry) => entry.wrong > 0)
-      .sort((a, b) => b.wrong - a.wrong);
+    return Object.values(
+      statsByInterval
+    )
+      .filter(
+        (entry) => entry.wrong > 0
+      )
+      .sort(
+        (a, b) =>
+          b.wrong - a.wrong
+      );
   }, [statsByInterval]);
 
   const recommendations = useMemo(() => {
-    return weakIntervals.slice(0, 3).map((entry) => {
-      const count = entry.wrong;
-      return `Practice ${entry.interval.label} — missed ${count} time${count > 1 ? "s" : ""}.`;
-    });
+    return weakIntervals
+      .slice(0, 3)
+      .map((entry) => {
+        const count =
+          entry.wrong;
+
+        return `Practice ${entry.interval.label} — missed ${count} time${
+          count > 1 ? "s" : ""
+        }.`;
+      });
   }, [weakIntervals]);
 
   /* =====================================
